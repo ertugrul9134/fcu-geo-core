@@ -492,6 +492,9 @@ class App {
 
         // Sinüs Teoremi
         r('f4eq1', '\\frac{a}{\\sin(\\alpha)} = \\frac{b}{\\sin(\\beta)} = \\frac{c}{\\sin(\\gamma)}');
+
+        // Tolerans (Rapor Sayfası)
+        r('fTolerance', 'd = 0.006\\sqrt{S} + 0.02m');
     }
 }
 

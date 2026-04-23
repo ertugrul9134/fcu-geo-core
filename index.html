@@ -43,6 +43,10 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                     Formüller
                 </button>
+                <button id="navReportBtn" class="nav-btn" data-page="report">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    Rapor
+                </button>
             </nav>
             <div class="header-status">
                 <span class="status-dot"></span>
@@ -180,6 +184,64 @@
                         <div id="f4eq1"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ═══════════════ PAGE: RAPOR ═══════════════ -->
+    <main id="pageReport" class="page">
+        <div class="page-single">
+            <div class="glass-panel report-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-2 Raporu</h2>
+                    <p>Ölçme Uygulamaları Dersi — Nirengi Ölçümü ve Hesaplama Raporu</p>
+                </div>
+                <article class="report-body">
+
+                    <h3>1. Giriş ve Hazırlık</h3>
+                    <p>13.10.2025 tarihinde yapılan Ölçme Uygulamaları dersinin ikinci uygulamasında, Yıldız Teknik Üniversitesi Davutpaşa Yerleşkesi çevresindeki nirengi noktalarında açı ve mesafe ölçümleri gerçekleştirildi. Dersimizi yürüten hocamız, bugün yapacağımız uygulamalar hakkında genel bilgi verdikten sonra İnşaat Fakültesi'ndeki laboratuvarımıza geçtik. Laboratuvardan jalon, jalon sehpası, çekül, T2 teodoliti ve sehpayı aldık. Bir önceki haftada ölçümler yaptığımız sahaya tekrar gittik.</p>
+
+                    <h3>2. Teodolit Kurulumu</h3>
+                    <p>Geçen hafta P5 olarak adlandırdığımız sabit noktamıza gelerek hocamızın anlatımı ve öncülüğünde sehpamızı bu noktaya yerleştirdik. Sehpanın ayaklarını ideal bir uzunluğa ayarladıktan sonra teodolitimizi üstüne yerleştirdik. Aleti alt kısmından sıkarak sehpaya sabitledik. Ayaklarıyla oynayıp sehpaya sabitledikten sonra optik şaküle bakarak zemindeki çiviyi, yani artı (+) olan kısmın ortasına denk getirmek için sehpanın ayaklarında oynamalar yaptık.</p>
+                    <p>Ardından küresel düzeçte bulunan kabarcığın olduğu doğrultudaki sehpa ayağında küçük indirme ve kaldırma hareketleri yaparak kabarcık tam ortadaki dairenin içine denk gelene kadar oynadık. Böylece asıl ekseni düşeylemiş olduk. Optik şakülden tekrardan bakarak oluşan küçük kaymayı düzelttik.</p>
+                    <p>Aletimizi kullanmaya geçmeden önce son olarak silindirik düzecimizi ayarlamaya koyulduk. Bunun içinde dairemizi, bulunduğumuz açıda tam ortaya denk getirdikten sonra teodoliti 100 gon çevirip bu işlemi tekrarladık. Aleti ilk bulunduğu doğrultuya getirerek son ayarlamamızı yaptık.</p>
+
+                    <h3>3. Ölçüm Süreci</h3>
+                    <p>Kullanıma hazır hale getirdiğimiz aletimizle P6 ve P7 noktalarındaki jalonların görünen en alt kısımlarını hedef alarak her bir nokta için üçer defa açı ölçümü yaptık. Bu aşamada yatay ve düşey hareket vidaları, görüntü netlik ayarı, açı okuma dürbünü gibi kısımları detaylı şekilde kullanarak aletin genel hatlarını öğrendik.</p>
+                    <p>Ölçümlerimizi gon biriminde kaydettik. Gon, bir tam dairenin 400'e bölünmesiyle elde edilir ve jeodezik hesaplamalarda derece yerine tercih edilir. Çelik şerit metre ile noktalar arası mesafe ölçümleri de ayrıca yapıldı. Çelik şerit metreyi kullanırken gerginliğinin sabit tutulmasına ve zemine paralel olmasına dikkat ettik.</p>
+
+                    <h3>4. Veritabanı ve Koordinat Sistemi</h3>
+                    <p>Sahadan elde ettiğimiz tüm veriler dijital ortama aktarıldı. Noktaların koordinatları TUREF/TM30 (Transverse Mercator, merkez meridyen 30°E) koordinat referans sistemindedir. Sağa değer (Y/Easting) ve yukarı değer (X/Northing) olarak kaydedildi. Sistemde toplam 9 nokta (41, 43, 44, 45, 46, 47, 48, 49, 50) bulunmaktadır. Bu noktaların her birinin Y ve X koordinatları veritabanına girildi.</p>
+                    <p>Doğrultu ölçüleri her bir duruş noktasından bakılan noktalara yönelik olarak gon cinsinden kayıt altına alındı. Mesafe ölçümleri ise çelik şerit metre ile metre cinsinden elde edildi. Bazı kenar mesafeleri doğrudan ölçülemediğinden sinüs teoremi kullanılarak hesaplandı.</p>
+
+                    <h3>5. Hesaplama Yöntemleri</h3>
+
+                    <h4>5.1. Açı Kapanma Hatası ve Dağıtımı</h4>
+                    <p>Bir üçgenin iç açıları toplamı 200 gon olmalıdır. Ölçüm hatalarından dolayı toplam bu değerden sapabilir. Sapma miktarı (w) eşit olarak üç açıya dağıtılarak düzeltilmiş açılar elde edilir. Bu dağıtım işlemi, nirengi hesaplarının doğruluğu için zorunludur.</p>
+
+                    <h4>5.2. Sinüs Teoremi ile Kenar Hesabı</h4>
+                    <p>Bilinen bir kenar ve karşı açısı ile diğer kenarların uzunlukları sinüs oranıyla hesaplandı. Bu yöntem özellikle doğrudan ölçüm yapılamayan kenarlarda devreye girer.</p>
+
+                    <h4>5.3. İkinci Temel Ödev (Ters Hesap)</h4>
+                    <p>Koordinatları bilinen iki nokta arasındaki azimut ve mesafe hesaplandı. ΔY ve ΔX farkları alınarak mesafe Pisagor bağıntısıyla, azimut ise arktanjant fonksiyonu ve kadran düzeltmesi ile elde edildi.</p>
+
+                    <h4>5.4. Birinci Temel Ödev (Düz Hesap)</h4>
+                    <p>Bilinen bir noktanın koordinatları, azimut ve mesafe kullanılarak bilinmeyen noktanın koordinatları hesaplandı. Y bileşeni sinüs, X bileşeni kosinüs çarpanlarıyla elde edildi. Hesaplanan koordinatlar veritabanındaki değerlerle karşılaştırılarak sapma kontrol edildi.</p>
+
+                    <h4>5.5. Üçüncü Temel Ödev (Açı Nakli)</h4>
+                    <p>Bir doğrultudan diğerine geçiş, bilinen azimut değerine 200 gon ve kırılma açısı eklenerek 400 gon modunda yapıldı. Hesaplanan yeni azimut, doğrudan elde edilen azimutla karşılaştırılarak doğrulandı.</p>
+
+                    <h3>6. Ölçülen ve Hesaplanan Kenarların Karşılaştırması</h3>
+                    <p>Çelik şerit metre ile ölçülen kenarlar, koordinatlardan hesaplanan kenarlarla karşılaştırıldı. İzin verilen hata sınırı (tolerans) aşağıdaki formül ile hesaplanır:</p>
+                    <div class="formula-render" style="text-align: center;">
+                        <div id="fTolerance"></div>
+                    </div>
+                    <p>Mesela 47-48 kenarı ölçümde 11.755 m, koordinatlardan 11.740 m olarak hesaplandı. 1.5 cm fark, kabul edilebilir tolerans sınırı içindedir. Bu karşılaştırma her üçgen için yapıldı ve sonuçlar tutarlı bulundu.</p>
+
+                    <h3>7. Sonuç</h3>
+                    <p>Teodolit kurulumu, açı ve mesafe ölçümü, verilerin sayısal ortamda işlenmesi ve üç temel ödev ile sinüs teoreminin uygulanması bu çalışmanın kapsamını oluşturdu. Açı kapanma hataları dağıtıldı, kenar hesapları sinüs teoremiyle yapıldı, ölçülen kenarlarla hesaplanan kenarlar karşılaştırıldı ve tüm noktaların koordinatları doğrulandı. Ölçümlerimizi kaydettikten sonra aletleri toplayıp laboratuvara teslim ederek sahayı terk ettik.</p>
+
+                </article>
             </div>
         </div>
     </main>
