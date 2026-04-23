@@ -103,8 +103,8 @@ body::before {
 .logo-title {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 800;
-    font-size: 1.1rem;
-    letter-spacing: 1.5px;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
 }
 
 .logo-title em {
