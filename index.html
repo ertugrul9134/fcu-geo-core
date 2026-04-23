@@ -23,11 +23,14 @@
             <div class="logo-group" id="logoLink" style="cursor: pointer;"
                 onclick="document.getElementById('navMapBtn').click();">
                 <div class="logo-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
-                        <line x1="12" y1="22" x2="12" y2="15.5" />
-                        <line x1="22" y1="8.5" x2="12" y2="15.5" />
-                        <line x1="2" y1="8.5" x2="12" y2="15.5" />
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 14l-4 8" />
+                        <path d="M12 14l4 8" />
+                        <path d="M12 14v8" />
+                        <rect x="9" y="8" width="6" height="6" rx="1" />
+                        <path d="M7 10h10" />
+                        <path d="M10 8V5a2 2 0 0 1 4 0v3" />
+                        <circle cx="12" cy="11" r="1.5" fill="currentColor" />
                     </svg>
                 </div>
                 <div class="logo-text">
@@ -79,9 +82,12 @@
                 </button>
                 <div class="nav-indicator"></div>
             </nav>
-            <div class="header-status">
-                <span class="status-dot"></span>
-                <span class="status-text">AKTİF</span>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="header-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">AKTİF</span>
+                </div>
+                <img src="YTU_logo.png" alt="YTU Logo" style="height: 36px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
             </div>
         </div>
     </header>
@@ -346,6 +352,12 @@
             </div>
         </div>
     </main>
+
+    <footer style="text-align: center; padding: 1.5rem; color: var(--text-3); font-size: 0.85rem; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 2rem;">
+        Ertuğrul Kulak, Şişli, İstanbul<br>
+        Version 1.2.0 | Last Renewed: April 2026<br>
+        &copy; 2026 All Rights Reserved
+    </footer>
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
