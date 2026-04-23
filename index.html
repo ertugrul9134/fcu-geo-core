@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCU Geodetic Core | Triangulation</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">FCU <span>GEO-CORE</span></div>
+            <div class="status-indicator">
+                <span class="dot"></span>
+                <span>SYSTEM ACTIVE</span>
+            </div>
+        </header>
+        
+        <main class="main-content">
+            <section class="visualizer-section">
+                <div class="panel-header">
+                    <h2>Geodetic Visualizer</h2>
+                    <p>Select 3 nodes to initiate triangulation protocol.</p>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="geoCanvas"></canvas>
+                    <div id="tooltip" class="tooltip hidden"></div>
+                </div>
+            </section>
+
+            <section class="telemetry-section">
+                <div class="panel-header">
+                    <h2>Operation Telemetry</h2>
+                    <p>Real-time calculation matrix.</p>
+                </div>
+                
+                <div class="card selected-nodes-card">
+                    <h3>Selected Nodes</h3>
+                    <div id="selectedNodesList" class="node-list">
+                        <span class="empty-state">Awaiting selection...</span>
+                    </div>
+                    <button id="calculateBtn" class="action-btn" disabled>EXECUTE PROTOCOL</button>
+                    <button id="clearBtn" class="action-btn secondary">CLEAR</button>
+                </div>
+
+                <div class="card results-card" id="resultsCard">
+                    <h3>Triangulation Results</h3>
+                    <div id="resultsContent" class="results-content">
+                        <span class="empty-state">Awaiting execution...</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+</html>
