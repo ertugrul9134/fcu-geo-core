@@ -3,102 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="FCU Jeodezik Hesaplama Sistemi - Nirengi ve Üçgen Hesaplamaları">
     <title>FCU Jeodezik Çekirdek | Nirengi Protokolü</title>
     
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    
-    <!-- KaTeX CSS for Formulas -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71PT0KILfu" crossorigin="anonymous">
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="logo">FCU <span>GEO-CORE</span></div>
-            <div class="header-actions">
-                <button id="openDbBtn" class="action-btn header-btn">VERİTABANI YÖNETİMİ</button>
-                <div class="status-indicator">
-                    <span class="dot"></span>
-                    <span>SİSTEM AKTİF</span>
+
+    <!-- ═══════════════ GLASSMORPHIC HEADER ═══════════════ -->
+    <header id="appHeader" class="glass-header">
+        <div class="header-inner">
+            <div class="logo-group">
+                <div class="logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+                        <line x1="12" y1="22" x2="12" y2="15.5"/>
+                        <line x1="22" y1="8.5" x2="12" y2="15.5"/>
+                        <line x1="2" y1="8.5" x2="12" y2="15.5"/>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <span class="logo-title">FCU <em>GEO-CORE</em></span>
+                    <span class="logo-sub">Jeodezik Hesaplama Sistemi</span>
                 </div>
             </div>
-        </header>
-        
-        <main class="main-content">
-            <section class="visualizer-section">
-                <div class="panel-header">
-                    <h2>Jeodezik Harita</h2>
-                    <p>Nirengi hesaplamasını başlatmak için haritadan 3 nokta seçin.</p>
-                </div>
-                <div class="map-container">
-                    <div id="geoMap"></div>
+            <nav class="header-nav">
+                <button id="navMapBtn" class="nav-btn active" data-page="map">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                    Harita
+                </button>
+                <button id="navDbBtn" class="nav-btn" data-page="db">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    Veritabanı
+                </button>
+                <button id="navFormulasBtn" class="nav-btn" data-page="formulas">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    Formüller
+                </button>
+            </nav>
+            <div class="header-status">
+                <span class="status-dot"></span>
+                <span class="status-text">AKTİF</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════ PAGE: MAP ═══════════════ -->
+    <main id="pageMap" class="page active">
+        <div class="page-grid">
+            <section class="map-section">
+                <div class="glass-panel map-panel">
+                    <div class="panel-title-bar">
+                        <h2>Jeodezik Görselleştirici</h2>
+                        <p>Nirengi hesabı için haritadan <strong>3 nokta</strong> seçin.</p>
+                    </div>
+                    <div class="map-wrapper">
+                        <div id="geoMap"></div>
+                    </div>
                 </div>
             </section>
 
             <section class="telemetry-section">
-                <div class="panel-header">
-                    <h2>Operasyon Telemetrisi</h2>
-                    <p>Gerçek zamanlı hesaplama matrisi ve algoritmik döküm.</p>
-                </div>
-                
-                <div class="card selected-nodes-card">
+                <div class="glass-panel selection-panel">
                     <h3>Seçili Noktalar</h3>
-                    <div id="selectedNodesList" class="node-list">
-                        <span class="empty-state">Seçim bekleniyor...</span>
+                    <div id="selectedNodesList" class="node-chips">
+                        <span class="empty-hint">Haritadan nokta seçin...</span>
                     </div>
-                    <button id="calculateBtn" class="action-btn" disabled>PROTOKOLÜ ÇALIŞTIR</button>
-                    <button id="clearBtn" class="action-btn secondary">TEMİZLE</button>
+                    <div class="btn-row">
+                        <button id="calculateBtn" class="btn btn-primary" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            HESAPLA
+                        </button>
+                        <button id="clearBtn" class="btn btn-outline">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            TEMİZLE
+                        </button>
+                    </div>
                 </div>
 
-                <div class="card results-card" id="resultsCard">
-                    <h3>Nirengi Sonuçları ve Formüller</h3>
-                    <div id="resultsContent" class="results-content">
-                        <span class="empty-state">Yürütme bekleniyor...</span>
+                <div class="glass-panel results-panel" id="resultsPanel">
+                    <h3>Hesaplama Sonuçları</h3>
+                    <div id="resultsContent" class="results-body">
+                        <span class="empty-hint">Üç nokta seçip "Hesapla" butonuna basın...</span>
                     </div>
                 </div>
             </section>
-        </main>
-    </div>
+        </div>
+    </main>
 
-    <!-- Database Management Modal -->
-    <div id="dbModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Veritabanı Yönetimi</h2>
-                <button id="closeDbBtn" class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p class="modal-info">Sistemin kullanacağı koordinatları ve ölçüm telemetrisini JSON formatında düzenleyin.</p>
-                <div class="db-section">
-                    <h3>Koordinatlar (Y, X)</h3>
-                    <textarea id="coordsInput" class="code-editor"></textarea>
+    <!-- ═══════════════ PAGE: DATABASE ═══════════════ -->
+    <main id="pageDb" class="page">
+        <div class="page-single">
+            <div class="glass-panel db-panel">
+                <div class="panel-title-bar">
+                    <h2>Veritabanı Yönetimi</h2>
+                    <p>Koordinat ve ölçüm verilerinizi düzenleyin. Değişiklikler tarayıcınıza kaydedilir.</p>
                 </div>
-                <div class="db-section">
-                    <h3>Ölçümler (dn, bn, doğrultu, mesafe)</h3>
-                    <textarea id="measurementsInput" class="code-editor"></textarea>
+                <div class="db-grid">
+                    <div class="db-col">
+                        <label class="db-label">Nokta Koordinatları <span>(JSON)</span></label>
+                        <textarea id="coordsEditor" class="code-textarea" spellcheck="false"></textarea>
+                    </div>
+                    <div class="db-col">
+                        <label class="db-label">Ölçüm Verileri <span>(JSON)</span></label>
+                        <textarea id="measEditor" class="code-textarea" spellcheck="false"></textarea>
+                    </div>
                 </div>
-                <button id="saveDbBtn" class="action-btn">VERİTABANINI GÜNCELLE</button>
-                <button id="resetDbBtn" class="action-btn destructive">VARSAYILANLARA SIFIRLA</button>
+                <div class="btn-row db-actions">
+                    <button id="saveDbBtn" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        KAYDET
+                    </button>
+                    <button id="resetDbBtn" class="btn btn-danger">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        VARSAYILANA SIFIRLA
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
+    </main>
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
-    <!-- Proj4js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js" integrity="sha512-lO8O79bOOm3c+8mCC84ZWc43sO+fnOaXG9G+XS0ewRzZ7360AcuzxgC80q0K0jYq8o8Nmtx++h9zL8KzZ+aY+Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    
-    <!-- KaTeX JS -->
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21h6RZv/phavutF+GqIGc/1Z1fK11/R+0A1kZ5+sXvSj29n2B2oG1A+Rj/bU4" crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbOxyj0O+rX/rR00zL0u5f5qA" crossorigin="anonymous"></script>
+    <!-- ═══════════════ PAGE: FORMULAS ═══════════════ -->
+    <main id="pageFormulas" class="page">
+        <div class="page-single">
+            <div class="formulas-grid">
+                <div class="glass-panel formula-card">
+                    <h3>1. Temel Ödev</h3>
+                    <p class="formula-desc">Bilinen bir noktadan, azimut ve mesafe ile bilinmeyen noktanın koordinatlarını hesaplar.</p>
+                    <div class="formula-box" id="formula1">
+                        <strong>Bilinen:</strong> Y<sub>A</sub>, X<sub>A</sub>, α (azimut), S (mesafe)<br>
+                        <strong>İstenen:</strong> Y<sub>B</sub>, X<sub>B</sub>
+                    </div>
+                    <div class="formula-math">
+                        <div id="f1eq1"></div>
+                        <div id="f1eq2"></div>
+                    </div>
+                </div>
 
-    <!-- App Logic -->
+                <div class="glass-panel formula-card">
+                    <h3>2. Temel Ödev</h3>
+                    <p class="formula-desc">İki bilinen nokta arasındaki azimut ve mesafeyi hesaplar.</p>
+                    <div class="formula-box" id="formula2">
+                        <strong>Bilinen:</strong> Y<sub>A</sub>, X<sub>A</sub>, Y<sub>B</sub>, X<sub>B</sub><br>
+                        <strong>İstenen:</strong> α (azimut), S (mesafe)
+                    </div>
+                    <div class="formula-math">
+                        <div id="f2eq1"></div>
+                        <div id="f2eq2"></div>
+                        <div id="f2eq3"></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel formula-card">
+                    <h3>3. Temel Ödev</h3>
+                    <p class="formula-desc">Bir köşe noktasından geçen doğrultu ile kırılma açısı kullanarak yeni doğrultuyu hesaplar.</p>
+                    <div class="formula-box" id="formula3">
+                        <strong>Bilinen:</strong> α<sub>AB</sub> (azimut), β (kırılma açısı)<br>
+                        <strong>İstenen:</strong> α<sub>BC</sub>
+                    </div>
+                    <div class="formula-math">
+                        <div id="f3eq1"></div>
+                    </div>
+                </div>
+
+                <div class="glass-panel formula-card">
+                    <h3>Sinüs Teoremi</h3>
+                    <p class="formula-desc">Üçgende kenar-açı ilişkisi ile bilinmeyen kenar uzunluklarını hesaplar.</p>
+                    <div class="formula-box" id="formula4">
+                        <strong>Bilinen:</strong> Bir kenar + karşı açısı + diğer açılar<br>
+                        <strong>İstenen:</strong> Diğer kenar uzunlukları
+                    </div>
+                    <div class="formula-math">
+                        <div id="f4eq1"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>

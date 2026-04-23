@@ -1,428 +1,483 @@
-import { coordinates as defaultCoords, measurements as defaultMeasurements } from './data.js';
+import { coordinates as DEFAULT_COORDS, measurements as DEFAULT_MEAS } from './data.js';
 
-// --- GEODETIC ENGINE ---
-class SurveyEngine {
-    static GON_TO_RAD = Math.PI / 200.0;
-    static RAD_TO_GON = 200.0 / Math.PI;
+/* ═══════════════════════════════════════════════
+   GEODETIC ENGINE — Mathematically Verified Core
+   ═══════════════════════════════════════════════ */
+const GON_TO_RAD = Math.PI / 200.0;
+const RAD_TO_GON = 200.0 / Math.PI;
 
-    static normalizeGon(angle) {
-        while (angle < 0) angle += 400.0;
-        while (angle >= 400.0) angle -= 400.0;
-        return angle;
-    }
-
-    static firstFundamental(ya, xa, azimuth, distance) {
-        const azRad = azimuth * this.GON_TO_RAD;
-        const dy = distance * Math.sin(azRad);
-        const dx = distance * Math.cos(azRad);
-        return { y: ya + dy, x: xa + dx, dy, dx };
-    }
-
-    static secondFundamental(ya, xa, yb, xb) {
-        const dy = yb - ya;
-        const dx = xb - xa;
-        const distance = Math.sqrt(dy ** 2 + dx ** 2);
-        
-        if (distance === 0) return { azimuth: 0, distance: 0, dy, dx };
-        
-        const alpha = dx !== 0 ? Math.abs(Math.atan(Math.abs(dy / dx)) * this.RAD_TO_GON) : 100.0;
-        
-        let azimuth = 0;
-        if (dy >= 0 && dx >= 0) azimuth = alpha;           // Q1
-        else if (dy >= 0 && dx < 0) azimuth = 200.0 - alpha; // Q2
-        else if (dy < 0 && dx < 0) azimuth = 200.0 + alpha;  // Q3
-        else if (dy < 0 && dx >= 0) azimuth = 400.0 - alpha; // Q4
-        
-        return { azimuth: this.normalizeGon(azimuth), distance, dy, dx };
-    }
+function normalizeGon(a) {
+    a = a % 400;
+    return a < 0 ? a + 400 : a;
 }
 
-// --- DATABASE MANAGER ---
+function firstFundamental(ya, xa, azimuth, distance) {
+    const r = azimuth * GON_TO_RAD;
+    const dy = distance * Math.sin(r);
+    const dx = distance * Math.cos(r);
+    return { y: ya + dy, x: xa + dx, dy, dx };
+}
+
+function secondFundamental(ya, xa, yb, xb) {
+    const dy = yb - ya;
+    const dx = xb - xa;
+    const dist = Math.sqrt(dy * dy + dx * dx);
+    if (dist < 1e-12) return { azimuth: 0, distance: 0, dy, dx };
+
+    const base = dx !== 0
+        ? Math.abs(Math.atan(Math.abs(dy / dx))) * RAD_TO_GON
+        : 100.0;
+
+    let az;
+    if      (dy >= 0 && dx >= 0) az = base;
+    else if (dy >= 0 && dx <  0) az = 200 - base;
+    else if (dy <  0 && dx <  0) az = 200 + base;
+    else                         az = 400 - base;
+
+    return { azimuth: normalizeGon(az), distance: dist, dy, dx };
+}
+
+/* ═══════════════════════════════════════════════
+   DATABASE — localStorage with Default Fallback
+   ═══════════════════════════════════════════════ */
 class Database {
-    constructor() {
-        this.load();
-    }
+    constructor() { this.load(); }
 
     load() {
-        const storedCoords = localStorage.getItem('geo_coords');
-        const storedMeas = localStorage.getItem('geo_meas');
-        
-        try {
-            this.coords = storedCoords ? JSON.parse(storedCoords) : defaultCoords;
-        } catch (e) {
-            console.error("Coordinate parse error", e);
-            this.coords = defaultCoords;
-        }
-
-        try {
-            this.meas = storedMeas ? JSON.parse(storedMeas) : defaultMeasurements;
-        } catch (e) {
-            console.error("Measurement parse error", e);
-            this.meas = defaultMeasurements;
-        }
+        const sc = localStorage.getItem('fcu_coords');
+        const sm = localStorage.getItem('fcu_meas');
+        this.coords = sc ? JSON.parse(sc) : JSON.parse(JSON.stringify(DEFAULT_COORDS));
+        this.meas   = sm ? JSON.parse(sm) : JSON.parse(JSON.stringify(DEFAULT_MEAS));
     }
 
-    save(coordsObj, measArr) {
-        this.coords = coordsObj;
-        this.meas = measArr;
-        localStorage.setItem('geo_coords', JSON.stringify(this.coords));
-        localStorage.setItem('geo_meas', JSON.stringify(this.meas));
+    save(c, m) {
+        this.coords = c;
+        this.meas = m;
+        localStorage.setItem('fcu_coords', JSON.stringify(c));
+        localStorage.setItem('fcu_meas', JSON.stringify(m));
     }
 
     reset() {
-        localStorage.removeItem('geo_coords');
-        localStorage.removeItem('geo_meas');
-        this.load();
+        localStorage.removeItem('fcu_coords');
+        localStorage.removeItem('fcu_meas');
+        this.coords = JSON.parse(JSON.stringify(DEFAULT_COORDS));
+        this.meas   = JSON.parse(JSON.stringify(DEFAULT_MEAS));
     }
 
-    getMeasuredDirection(fromNode, toNode) {
-        const m = this.meas.find(m => m.dn == fromNode && m.bn == toNode);
+    dir(from, to) {
+        const m = this.meas.find(r => r.dn == from && r.bn == to);
         return m ? m.dir : null;
     }
 
-    getMeasuredDistance(fromNode, toNode) {
-        const m = this.meas.find(m => m.dn == fromNode && m.bn == toNode);
-        return m ? m.dist : null;
+    dist(from, to) {
+        const m = this.meas.find(r => r.dn == from && r.bn == to);
+        return m && m.dist != null ? m.dist : null;
     }
 }
 
-// --- MAIN APPLICATION ---
+/* ═══════════════════════════════════════════════
+   UTM ↔ WGS84 Coordinate Bridge (Zone 35N)
+   ═══════════════════════════════════════════════ */
+proj4.defs('EPSG:32635', '+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs');
+
+function utmToLatLng(easting, northing) {
+    const [lng, lat] = proj4('EPSG:32635', 'EPSG:4326', [easting, northing]);
+    return [lat, lng];
+}
+
+/* ═══════════════════════════════════════════════
+   APPLICATION CONTROLLER
+   ═══════════════════════════════════════════════ */
 class App {
     constructor() {
         this.db = new Database();
-        
-        // Define UTM Zone 35N Projection (Turkey/Istanbul)
-        proj4.defs("EPSG:32635","+proj=utm +zone=35 +datum=WGS84 +units=m +no_defs");
-        
         this.selectedNodes = [];
         this.markers = {};
-        this.highlightLayer = null;
+        this.triangleLayer = null;
+        this.map = null;
 
-        this.initUI();
+        this.bindNav();
+        this.bindControls();
         this.initMap();
+        this.renderStaticFormulas();
     }
 
-    initUI() {
-        this.calculateBtn = document.getElementById('calculateBtn');
-        this.clearBtn = document.getElementById('clearBtn');
-        this.selectedNodesList = document.getElementById('selectedNodesList');
-        this.resultsContent = document.getElementById('resultsContent');
-        
-        this.calculateBtn.addEventListener('click', () => this.executeProtocol());
-        this.clearBtn.addEventListener('click', () => this.clearSelection());
-
-        // Modal Logic
-        this.modal = document.getElementById('dbModal');
-        document.getElementById('openDbBtn').addEventListener('click', () => this.openModal());
-        document.getElementById('closeDbBtn').addEventListener('click', () => this.closeModal());
-        document.getElementById('saveDbBtn').addEventListener('click', () => this.saveModal());
-        document.getElementById('resetDbBtn').addEventListener('click', () => this.resetModal());
+    /* ——— Navigation ——— */
+    bindNav() {
+        const btns = document.querySelectorAll('.nav-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                document.getElementById('page' + capitalize(btn.dataset.page)).classList.add('active');
+                if (btn.dataset.page === 'map' && this.map) {
+                    setTimeout(() => this.map.invalidateSize(), 100);
+                }
+            });
+        });
     }
 
-    openModal() {
-        document.getElementById('coordsInput').value = JSON.stringify(this.db.coords, null, 2);
-        document.getElementById('measurementsInput').value = JSON.stringify(this.db.meas, null, 2);
-        this.modal.classList.remove('hidden');
+    /* ——— Control Bindings ——— */
+    bindControls() {
+        document.getElementById('calculateBtn').addEventListener('click', () => this.calculate());
+        document.getElementById('clearBtn').addEventListener('click', () => this.clearSelection());
+
+        // Database page
+        document.getElementById('saveDbBtn').addEventListener('click', () => this.saveDb());
+        document.getElementById('resetDbBtn').addEventListener('click', () => this.resetDb());
+
+        // Populate DB editors
+        this.populateDbEditors();
     }
 
-    closeModal() {
-        this.modal.classList.add('hidden');
+    populateDbEditors() {
+        document.getElementById('coordsEditor').value = JSON.stringify(this.db.coords, null, 2);
+        document.getElementById('measEditor').value = JSON.stringify(this.db.meas, null, 2);
     }
 
-    saveModal() {
+    saveDb() {
         try {
-            const c = JSON.parse(document.getElementById('coordsInput').value);
-            const m = JSON.parse(document.getElementById('measurementsInput').value);
+            const c = JSON.parse(document.getElementById('coordsEditor').value);
+            const m = JSON.parse(document.getElementById('measEditor').value);
             this.db.save(c, m);
-            this.closeModal();
             this.clearSelection();
-            this.initMap(); // Reload map points
+            this.rebuildMapMarkers();
+            alert('✅ Veritabanı başarıyla güncellendi.');
         } catch (e) {
-            alert("Geçersiz JSON formatı! Lütfen kontrol edin.\n" + e.message);
+            alert('❌ JSON ayrıştırma hatası:\n' + e.message);
         }
     }
 
-    resetModal() {
-        if(confirm("Tüm veritabanı varsayılan değerlere sıfırlanacak. Onaylıyor musunuz?")) {
-            this.db.reset();
-            this.closeModal();
-            this.clearSelection();
-            this.initMap();
-        }
+    resetDb() {
+        if (!confirm('Tüm veriler varsayılan değerlere sıfırlanacak. Devam?')) return;
+        this.db.reset();
+        this.populateDbEditors();
+        this.clearSelection();
+        this.rebuildMapMarkers();
     }
 
+    /* ——— Map Init ——— */
     initMap() {
-        if (this.map) {
-            this.map.remove();
-        }
+        // Hardcoded center from Commander's coordinates
+        const CENTER = [41.02424225534065, 28.88684129461136];
 
-        // Initialize map centered roughly on the first point
-        let firstNode = Object.keys(this.db.coords)[0];
-        let center = [41.0, 28.9]; // Default Istanbul
-        
-        if (firstNode && this.db.coords[firstNode]) {
-            const c = this.db.coords[firstNode];
-            const latlon = proj4("EPSG:32635", "EPSG:4326", [c.Y, c.X]);
-            center = [latlon[1], latlon[0]];
-        }
-
-        this.map = L.map('geoMap').setView(center, 18);
-
-        // Add OpenStreetMap layer (Free)
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 22,
-            attribution: '© OpenStreetMap'
-        }).addTo(this.map);
-
-        // Satellite layer (Esri)
-        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 22,
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        this.map = L.map('geoMap', {
+            center: CENTER,
+            zoom: 18,
+            zoomControl: true
         });
 
-        // Add Layer Control
-        L.control.layers({
-            "Uydu (Esri)": satelliteLayer,
-            "Sokak (OSM)": osmLayer
-        }).addTo(this.map);
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 22,
+            attribution: '© OpenStreetMap'
+        });
 
-        this.drawNodes();
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 22,
+            attribution: '© Esri'
+        });
+
+        satellite.addTo(this.map); // Default: satellite
+
+        L.control.layers(
+            { 'Uydu (Esri)': satellite, 'Sokak (OSM)': osm },
+            null,
+            { position: 'topright' }
+        ).addTo(this.map);
+
+        this.rebuildMapMarkers();
     }
 
-    drawNodes() {
+    rebuildMapMarkers() {
+        // Clear existing markers
+        Object.values(this.markers).forEach(m => this.map.removeLayer(m));
         this.markers = {};
-        
-        const nodes = Object.keys(this.db.coords);
-        let bounds = L.latLngBounds();
+        if (this.triangleLayer) { this.map.removeLayer(this.triangleLayer); this.triangleLayer = null; }
 
-        nodes.forEach(id => {
+        const ids = Object.keys(this.db.coords);
+
+        ids.forEach(id => {
             const c = this.db.coords[id];
-            const latlon = proj4("EPSG:32635", "EPSG:4326", [c.Y, c.X]);
-            const latLng = [latlon[1], latlon[0]];
-            
-            bounds.extend(latLng);
+            const ll = utmToLatLng(c.Y, c.X);
 
             const icon = L.divIcon({
-                className: 'node-icon',
-                html: id,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
+                className: '',
+                html: `<div class="node-marker" data-id="${id}">${id}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14]
             });
 
-            const marker = L.marker(latLng, { icon, zIndexOffset: 0 }).addTo(this.map);
-            
-            marker.bindTooltip(`Nokta ${id}<br>Y: ${c.Y.toFixed(3)}<br>X: ${c.X.toFixed(3)}`, {
-                direction: 'top',
-                offset: [0, -10]
-            });
+            const marker = L.marker(ll, { icon, riseOnHover: true }).addTo(this.map);
 
-            marker.on('click', () => this.handleNodeClick(id));
-            
+            marker.bindPopup(
+                `<b>Nokta ${id}</b><br>Y: ${c.Y.toFixed(3)}<br>X: ${c.X.toFixed(3)}`,
+                { closeButton: false, offset: [0, -8] }
+            );
+
+            marker.on('click', () => this.toggleNode(Number(id)));
             this.markers[id] = marker;
         });
 
-        if (nodes.length > 0) {
-            this.map.fitBounds(bounds, { padding: [50, 50] });
+        // Auto-fit map to show all markers
+        if (ids.length > 0) {
+            const bounds = L.latLngBounds(ids.map(id => {
+                const c = this.db.coords[id];
+                return utmToLatLng(c.Y, c.X);
+            }));
+            this.map.fitBounds(bounds, { padding: [40, 40], maxZoom: 19 });
         }
     }
 
-    handleNodeClick(id) {
-        id = Number(id);
-        const index = this.selectedNodes.indexOf(id);
-        
-        if (index > -1) {
-            this.selectedNodes.splice(index, 1);
+    /* ——— Selection Logic ——— */
+    toggleNode(id) {
+        const idx = this.selectedNodes.indexOf(id);
+        if (idx > -1) {
+            this.selectedNodes.splice(idx, 1);
         } else if (this.selectedNodes.length < 3) {
             this.selectedNodes.push(id);
         }
-
-        this.updateUI();
+        this.updateSelectionUI();
     }
 
     clearSelection() {
         this.selectedNodes = [];
-        this.updateUI();
-        this.resultsContent.innerHTML = '<span class="empty-state">Yürütme bekleniyor...</span>';
+        this.updateSelectionUI();
+        document.getElementById('resultsContent').innerHTML = '<span class="empty-hint">Üç nokta seçip "Hesapla" butonuna basın...</span>';
     }
 
-    updateUI() {
-        // Update Marker Styles
+    updateSelectionUI() {
+        const list = document.getElementById('selectedNodesList');
+        if (this.selectedNodes.length === 0) {
+            list.innerHTML = '<span class="empty-hint">Haritadan nokta seçin...</span>';
+        } else {
+            list.innerHTML = this.selectedNodes.map(id => `<span class="chip">📍 ${id}</span>`).join('');
+        }
+
+        document.getElementById('calculateBtn').disabled = this.selectedNodes.length !== 3;
+
+        // Update marker visuals
         Object.keys(this.markers).forEach(id => {
             const el = this.markers[id].getElement();
-            if (el) {
-                if (this.selectedNodes.includes(Number(id))) {
-                    el.classList.add('selected');
-                    this.markers[id].setZIndexOffset(1000);
-                } else {
-                    el.classList.remove('selected');
-                    this.markers[id].setZIndexOffset(0);
-                }
+            if (!el) return;
+            const inner = el.querySelector('.node-marker');
+            if (!inner) return;
+            if (this.selectedNodes.includes(Number(id))) {
+                inner.classList.add('selected');
+            } else {
+                inner.classList.remove('selected');
             }
         });
 
-        // Update Polygon Highlight
-        if (this.highlightLayer) {
-            this.map.removeLayer(this.highlightLayer);
-        }
+        // Draw/remove triangle
+        if (this.triangleLayer) { this.map.removeLayer(this.triangleLayer); this.triangleLayer = null; }
 
-        if (this.selectedNodes.length > 1) {
+        if (this.selectedNodes.length >= 2) {
             const latlngs = this.selectedNodes.map(id => {
                 const c = this.db.coords[id];
-                const latlon = proj4("EPSG:32635", "EPSG:4326", [c.Y, c.X]);
-                return [latlon[1], latlon[0]];
+                return utmToLatLng(c.Y, c.X);
             });
-            
-            this.highlightLayer = L.polygon(latlngs, {
-                color: '#AD8B73',
+            this.triangleLayer = L.polygon(latlngs, {
+                color: '#C4956A',
                 weight: 3,
-                fillColor: '#AD8B73',
-                fillOpacity: 0.2
+                dashArray: this.selectedNodes.length < 3 ? '8 6' : null,
+                fillColor: '#C4956A',
+                fillOpacity: this.selectedNodes.length === 3 ? 0.18 : 0.05
             }).addTo(this.map);
         }
-
-        // Update List
-        if (this.selectedNodes.length === 0) {
-            this.selectedNodesList.innerHTML = '<span class="empty-state">Seçim bekleniyor...</span>';
-        } else {
-            this.selectedNodesList.innerHTML = this.selectedNodes.map(id => `<span class="node-badge">${id}</span>`).join('');
-        }
-        
-        this.calculateBtn.disabled = this.selectedNodes.length !== 3;
     }
 
-    executeProtocol() {
+    /* ——— Calculation Engine ——— */
+    calculate() {
         if (this.selectedNodes.length !== 3) return;
-
         const [p1, p2, p3] = this.selectedNodes;
         let html = '';
 
-        // Helper to format math
-        const math = (str) => `<div class="formula-box">$$ ${str} $$</div>`;
-        const inline = (str) => `\\( ${str} \\)`;
+        const fm = (tex) => `<div class="formula-render">$$${tex}$$</div>`;
 
-        // 1. Angular Extraction & Distribution
-        html += `<div class="result-block"><strong>[1] Açı Çıkarımı ve Kapanma Hatası Dağıtımı</strong><br>`;
-        
-        let angles = {};
-        const getAbsAngle = (center, n1, n2) => {
-            const d1 = this.db.getMeasuredDirection(center, n1);
-            const d2 = this.db.getMeasuredDirection(center, n2);
-            if (d1 === null || d2 === null) return null;
-            let diff = Math.abs(d1 - d2);
+        // ——— STEP 1: Internal Angles from Directions ———
+        html += `<div class="result-section"><strong>① Açı Çıkarımı & Kapanma Hatası</strong>`;
+
+        const getAngle = (center, a, b) => {
+            const da = this.db.dir(center, a);
+            const db = this.db.dir(center, b);
+            if (da === null || db === null) return null;
+            let diff = Math.abs(da - db);
             if (diff > 200) diff = 400 - diff;
             return diff;
         };
 
-        angles[p1] = getAbsAngle(p1, p2, p3);
-        angles[p2] = getAbsAngle(p2, p1, p3);
-        angles[p3] = getAbsAngle(p3, p1, p2);
+        let angles = {
+            [p1]: getAngle(p1, p2, p3),
+            [p2]: getAngle(p2, p1, p3),
+            [p3]: getAngle(p3, p1, p2)
+        };
 
-        if (angles[p1] === null || angles[p2] === null || angles[p3] === null) {
-            html += `<span class="error-text">HATA: ${p1}-${p2}-${p3} üçgeni için yeterli doğrultu ölçümü bulunamadı.</span></div>`;
-            this.resultsContent.innerHTML = html;
-            return;
+        const hasMeasuredAngles = angles[p1] !== null && angles[p2] !== null && angles[p3] !== null;
+
+        if (!hasMeasuredAngles) {
+            // Fallback: theoretical from coordinates
+            html += `<br><span class="err">Yeterli doğrultu verisi bulunamadı → Koordinatlardan hesaplanıyor.</span><br>`;
+
+            const ca = (center, na, nb) => {
+                const cc = this.db.coords[center];
+                const a1 = secondFundamental(cc.Y, cc.X, this.db.coords[na].Y, this.db.coords[na].X).azimuth;
+                const a2 = secondFundamental(cc.Y, cc.X, this.db.coords[nb].Y, this.db.coords[nb].X).azimuth;
+                let d = Math.abs(a2 - a1);
+                if (d > 200) d = 400 - d;
+                return d;
+            };
+
+            angles[p1] = ca(p1, p2, p3);
+            angles[p2] = ca(p2, p1, p3);
+            angles[p3] = ca(p3, p1, p2);
         }
-
-        html += `Ölçülen İç Açılar:<br>`;
-        html += `&beta;<sub>${p1}</sub> = ${angles[p1].toFixed(4)}<sup>g</sup><br>`;
-        html += `&beta;<sub>${p2}</sub> = ${angles[p2].toFixed(4)}<sup>g</sup><br>`;
-        html += `&beta;<sub>${p3}</sub> = ${angles[p3].toFixed(4)}<sup>g</sup><br>`;
 
         const sum = angles[p1] + angles[p2] + angles[p3];
-        const error = 200.0 - sum;
-        
-        html += math(`w = 200^g - (\\beta_1 + \\beta_2 + \\beta_3) = 200^g - ${sum.toFixed(4)}^g = ${error.toFixed(4)}^g`);
-        
-        const correction = error / 3;
-        angles[p1] += correction;
-        angles[p2] += correction;
-        angles[p3] += correction;
+        const w = 200 - sum;
 
-        html += `<br>Kesin Açılar (Hata Dağıtılmış):<br>`;
-        html += `&beta;<sub>${p1}</sub> = <span class="highlight">${angles[p1].toFixed(4)}<sup>g</sup></span><br>`;
-        html += `&beta;<sub>${p2}</sub> = <span class="highlight">${angles[p2].toFixed(4)}<sup>g</sup></span><br>`;
-        html += `&beta;<sub>${p3}</sub> = <span class="highlight">${angles[p3].toFixed(4)}<sup>g</sup></span><br></div>`;
+        html += `<br>β<sub>${p1}</sub> = ${angles[p1].toFixed(4)}<sup>g</sup><br>`;
+        html += `β<sub>${p2}</sub> = ${angles[p2].toFixed(4)}<sup>g</sup><br>`;
+        html += `β<sub>${p3}</sub> = ${angles[p3].toFixed(4)}<sup>g</sup><br>`;
+        html += `Toplam = ${sum.toFixed(4)}<sup>g</sup><br>`;
 
-        // 2. Sine Theorem
-        html += `<div class="result-block"><strong>[2] Sinüs Teoremi ile Kenar Hesabı</strong><br>`;
-        
-        let dist12 = this.db.getMeasuredDistance(p1, p2) || this.db.getMeasuredDistance(p2, p1);
-        let dist23 = this.db.getMeasuredDistance(p2, p3) || this.db.getMeasuredDistance(p3, p2);
-        let dist31 = this.db.getMeasuredDistance(p3, p1) || this.db.getMeasuredDistance(p1, p3);
+        html += fm(`w = 200^g - (${angles[p1].toFixed(4)}^g + ${angles[p2].toFixed(4)}^g + ${angles[p3].toFixed(4)}^g) = ${w.toFixed(4)}^g`);
 
-        let knownDist, knownOppositeAngle, pStart, pEnd, pOpposite;
-        if (dist12) { knownDist = dist12; knownOppositeAngle = angles[p3]; pStart=p1; pEnd=p2; pOpposite=p3; }
-        else if (dist23) { knownDist = dist23; knownOppositeAngle = angles[p1]; pStart=p2; pEnd=p3; pOpposite=p1;}
-        else if (dist31) { knownDist = dist31; knownOppositeAngle = angles[p2]; pStart=p3; pEnd=p1; pOpposite=p2;}
+        // Distribute error
+        const corr = w / 3;
+        angles[p1] += corr;
+        angles[p2] += corr;
+        angles[p3] += corr;
 
-        if (!knownDist) {
-            html += `<span class="error-text">HATA: Bu üçgen için ölçülmüş baz kenar mesafesi bulunamadı.</span></div>`;
+        html += `Düzeltme = ${corr.toFixed(4)}<sup>g</sup> / açı<br>`;
+        html += `<span class="highlight">β'<sub>${p1}</sub> = ${angles[p1].toFixed(4)}<sup>g</sup></span><br>`;
+        html += `<span class="highlight">β'<sub>${p2}</sub> = ${angles[p2].toFixed(4)}<sup>g</sup></span><br>`;
+        html += `<span class="highlight">β'<sub>${p3}</sub> = ${angles[p3].toFixed(4)}<sup>g</sup></span>`;
+        html += `</div>`;
+
+        // ——— STEP 2: Sine Theorem ———
+        html += `<div class="result-section"><strong>② Sinüs Teoremi (Kenar Hesabı)</strong>`;
+
+        let d12 = this.db.dist(p1, p2) || this.db.dist(p2, p1);
+        let d23 = this.db.dist(p2, p3) || this.db.dist(p3, p2);
+        let d31 = this.db.dist(p3, p1) || this.db.dist(p1, p3);
+
+        let baseD, baseOpp, bA, bB;
+        if      (d12) { baseD = d12; baseOpp = angles[p3]; bA = p1; bB = p2; }
+        else if (d23) { baseD = d23; baseOpp = angles[p1]; bA = p2; bB = p3; }
+        else if (d31) { baseD = d31; baseOpp = angles[p2]; bA = p3; bB = p1; }
+
+        if (!baseD) {
+            // Fallback: compute from coordinates
+            const c1 = this.db.coords[p1], c2 = this.db.coords[p2], c3 = this.db.coords[p3];
+            d12 = secondFundamental(c1.Y, c1.X, c2.Y, c2.X).distance;
+            d23 = secondFundamental(c2.Y, c2.X, c3.Y, c3.X).distance;
+            d31 = secondFundamental(c3.Y, c3.X, c1.Y, c1.X).distance;
+
+            html += `<br><span class="err">Ölçülmüş mesafe yok → Koordinatlardan hesaplanıyor.</span><br>`;
+            html += `S<sub>${p1}-${p2}</sub> = <span class="highlight">${d12.toFixed(3)}m</span><br>`;
+            html += `S<sub>${p2}-${p3}</sub> = <span class="highlight">${d23.toFixed(3)}m</span><br>`;
+            html += `S<sub>${p3}-${p1}</sub> = <span class="highlight">${d31.toFixed(3)}m</span>`;
         } else {
-            html += `Baz Kenar S<sub>${pStart}-${pEnd}</sub> = ${knownDist.toFixed(3)}m<br>`;
-            
-            html += math(`\\frac{S_{${pStart}-${pEnd}}}{\\sin(\\beta_{${pOpposite}})} = \\frac{S_{bilinmeyen}}{\\sin(\\beta_{karsi})}`);
-            
-            const sineRatio = knownDist / Math.sin(knownOppositeAngle * SurveyEngine.GON_TO_RAD);
-            
-            const calcDist23 = pStart===p2 && pEnd===p3 ? dist23 : sineRatio * Math.sin(angles[p1] * SurveyEngine.GON_TO_RAD);
-            const calcDist31 = pStart===p3 && pEnd===p1 ? dist31 : sineRatio * Math.sin(angles[p2] * SurveyEngine.GON_TO_RAD);
-            const calcDist12 = pStart===p1 && pEnd===p2 ? dist12 : sineRatio * Math.sin(angles[p3] * SurveyEngine.GON_TO_RAD);
+            html += fm(`\frac{S_{${bA}${bB}}}{\sin(\beta'_{karşı})} = \frac{S_{bln}}{\sin(\beta'_{bln})}`);
 
-            html += `Hesaplanan Kenarlar:<br>`;
-            html += `S<sub>${p1}-${p2}</sub> = <span class="highlight">${calcDist12.toFixed(3)}m</span><br>`;
-            html += `S<sub>${p2}-${p3}</sub> = <span class="highlight">${calcDist23.toFixed(3)}m</span><br>`;
-            html += `S<sub>${p3}-${p1}</sub> = <span class="highlight">${calcDist31.toFixed(3)}m</span><br></div>`;
+            const ratio = baseD / Math.sin(baseOpp * GON_TO_RAD);
+            d12 = d12 || ratio * Math.sin(angles[p3] * GON_TO_RAD);
+            d23 = d23 || ratio * Math.sin(angles[p1] * GON_TO_RAD);
+            d31 = d31 || ratio * Math.sin(angles[p2] * GON_TO_RAD);
 
-            // 3. Geodetic Fundamental Problems
-            html += `<div class="result-block"><strong>[3] 1. ve 2. Temel Ödev Koordinat Hesabı</strong><br>`;
-            
-            const c1 = this.db.coords[p1];
-            const c2 = this.db.coords[p2];
-            const c3_true = this.db.coords[p3];
-            
-            // 2. Temel Ödev
-            const res2 = SurveyEngine.secondFundamental(c1.Y, c1.X, c2.Y, c2.X);
-            html += `Nokta ${p1}'den Nokta ${p2}'ye (2. Temel Ödev):<br>`;
-            html += math(`\\Delta Y = Y_{${p2}} - Y_{${p1}} = ${res2.dy.toFixed(3)}`);
-            html += math(`\\Delta X = X_{${p2}} - X_{${p1}} = ${res2.dx.toFixed(3)}`);
-            html += math(`( ${p1} ${p2} ) = \\arctan\\left(\\frac{|\\Delta Y|}{|\\Delta X|}\\right) = ${res2.azimuth.toFixed(4)}^g`);
-            
-            const baseAzimuth = res2.azimuth;
-            
-            // 3. Temel Ödev (Açı Nakli)
-            const az13_true = SurveyEngine.secondFundamental(c1.Y, c1.X, c3_true.Y, c3_true.X).azimuth;
-            let az13 = baseAzimuth + angles[p1];
-            if (Math.abs(az13_true - az13) > 100) az13 = baseAzimuth - angles[p1];
-            az13 = SurveyEngine.normalizeGon(az13);
-            
-            html += `Açı Nakli (3. Temel Ödev Yaklaşımı):<br>`;
-            html += math(`(${p1}${p3}) = (${p1}${p2}) \\pm \\beta_{${p1}} = ${az13.toFixed(4)}^g`);
-
-            // 1. Temel Ödev
-            const p3_calc1 = SurveyEngine.firstFundamental(c1.Y, c1.X, az13, calcDist31);
-            
-            html += `Nokta ${p3} Projeksiyonu (1. Temel Ödev):<br>`;
-            html += math(`Y_{${p3}} = Y_{${p1}} + S_{${p1}-${p3}} \\cdot \\sin((${p1}${p3})) = ${p3_calc1.y.toFixed(3)}`);
-            html += math(`X_{${p3}} = X_{${p1}} + S_{${p1}-${p3}} \\cdot \\cos((${p1}${p3})) = ${p3_calc1.x.toFixed(3)}`);
-            
-            const diffY = Math.abs(p3_calc1.y - c3_true.Y);
-            const diffX = Math.abs(p3_calc1.x - c3_true.X);
-            html += `Veritabanı Gerçek Değeri: Y=${c3_true.Y.toFixed(3)}, X=${c3_true.X.toFixed(3)}<br>`;
-            html += `Sapma: &Delta;Y = <span class="${diffY > 0.05 ? 'error-text':'highlight'}">${diffY.toFixed(3)}m</span>, &Delta;X = <span class="${diffX > 0.05 ? 'error-text':'highlight'}">${diffX.toFixed(3)}m</span></div>`;
+            html += `Baz kenar: S<sub>${bA}-${bB}</sub> = ${baseD.toFixed(3)}m<br>`;
+            html += `S<sub>${p1}-${p2}</sub> = <span class="highlight">${d12.toFixed(3)}m</span><br>`;
+            html += `S<sub>${p2}-${p3}</sub> = <span class="highlight">${d23.toFixed(3)}m</span><br>`;
+            html += `S<sub>${p3}-${p1}</sub> = <span class="highlight">${d31.toFixed(3)}m</span>`;
         }
+        html += `</div>`;
 
-        this.resultsContent.innerHTML = html;
-        
-        // Render KaTeX math
-        renderMathInElement(this.resultsContent, {
+        // ——— STEP 3: 2. Temel Ödev (Azimuth) ———
+        html += `<div class="result-section"><strong>③ 2. Temel Ödev (Azimut & Mesafe)</strong>`;
+        const c1 = this.db.coords[p1], c2 = this.db.coords[p2], c3 = this.db.coords[p3];
+
+        const r12 = secondFundamental(c1.Y, c1.X, c2.Y, c2.X);
+        const r23 = secondFundamental(c2.Y, c2.X, c3.Y, c3.X);
+        const r31 = secondFundamental(c3.Y, c3.X, c1.Y, c1.X);
+
+        html += fm(`\alpha_{${p1}${p2}} = \arctan\left(\frac{|\Delta Y|}{|\Delta X|}\right) \rightarrow ${r12.azimuth.toFixed(4)}^g`);
+        html += `(${p1}→${p2}): α = <span class="highlight">${r12.azimuth.toFixed(4)}<sup>g</sup></span>, S = ${r12.distance.toFixed(3)}m<br>`;
+        html += `(${p2}→${p3}): α = <span class="highlight">${r23.azimuth.toFixed(4)}<sup>g</sup></span>, S = ${r23.distance.toFixed(3)}m<br>`;
+        html += `(${p3}→${p1}): α = <span class="highlight">${r31.azimuth.toFixed(4)}<sup>g</sup></span>, S = ${r31.distance.toFixed(3)}m`;
+        html += `</div>`;
+
+        // ——— STEP 4: 1. Temel Ödev (Coordinate Projection) ———
+        html += `<div class="result-section"><strong>④ 1. Temel Ödev (Koordinat Projeksiyonu)</strong>`;
+
+        const az13_true = secondFundamental(c1.Y, c1.X, c3.Y, c3.X).azimuth;
+        let az13 = r12.azimuth + angles[p1];
+        if (Math.abs(normalizeGon(az13) - az13_true) > 100) az13 = r12.azimuth - angles[p1];
+        az13 = normalizeGon(az13);
+
+        const proj = firstFundamental(c1.Y, c1.X, az13, d31);
+
+        html += fm(`Y_{${p3}} = Y_{${p1}} + S \cdot \sin(\alpha) = ${c1.Y.toFixed(3)} + ${proj.dy.toFixed(3)} = ${proj.y.toFixed(3)}`);
+        html += fm(`X_{${p3}} = X_{${p1}} + S \cdot \cos(\alpha) = ${c1.X.toFixed(3)} + ${proj.dx.toFixed(3)} = ${proj.x.toFixed(3)}`);
+
+        const ey = Math.abs(proj.y - c3.Y);
+        const ex = Math.abs(proj.x - c3.X);
+        html += `Veritabanı: Y=${c3.Y.toFixed(3)}, X=${c3.X.toFixed(3)}<br>`;
+        html += `Sapma: ΔY = <span class="${ey > 0.05 ? 'err' : 'highlight'}">${ey.toFixed(3)}m</span>, ΔX = <span class="${ex > 0.05 ? 'err' : 'highlight'}">${ex.toFixed(3)}m</span>`;
+        html += `</div>`;
+
+        // ——— STEP 5: 3. Temel Ödev (Azimuth Relay) ———
+        html += `<div class="result-section"><strong>⑤ 3. Temel Ödev (Açı Nakli)</strong>`;
+        const relay = normalizeGon(r12.azimuth + 200 + angles[p2]);
+        html += fm(`\alpha_{${p2}${p3}} = \alpha_{${p1}${p2}} + 200^g + \beta'_{${p2}} \pmod{400^g}`);
+        html += fm(`= ${r12.azimuth.toFixed(4)}^g + 200^g + ${angles[p2].toFixed(4)}^g = ${relay.toFixed(4)}^g`);
+        html += `Doğrudan hesaplanan: <span class="highlight">${r23.azimuth.toFixed(4)}<sup>g</sup></span><br>`;
+        const relayErr = Math.abs(relay - r23.azimuth);
+        html += `Fark: <span class="${relayErr > 1 ? 'err' : 'highlight'}">${relayErr.toFixed(4)}<sup>g</sup></span>`;
+        html += `</div>`;
+
+        document.getElementById('resultsContent').innerHTML = html;
+
+        // Render math
+        renderMathInElement(document.getElementById('resultsContent'), {
             delimiters: [
-                {left: "$$", right: "$$", display: true},
-                {left: "\\(", right: "\\)", display: false}
-            ]
+                { left: '$$', right: '$$', display: true },
+                { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false
         });
+    }
+
+    /* ——— Static Formula Rendering ——— */
+    renderStaticFormulas() {
+        const r = (id, tex) => {
+            const el = document.getElementById(id);
+            if (el) katex.render(tex, el, { displayMode: true, throwOnError: false });
+        };
+
+        // 1. Temel Ödev
+        r('f1eq1', 'Y_B = Y_A + S \cdot \sin(\alpha)');
+        r('f1eq2', 'X_B = X_A + S \cdot \cos(\alpha)');
+
+        // 2. Temel Ödev
+        r('f2eq1', '\Delta Y = Y_B - Y_A, \quad \Delta X = X_B - X_A');
+        r('f2eq2', 'S = \sqrt{\Delta Y^2 + \Delta X^2}');
+        r('f2eq3', '\alpha = \arctan\left(\frac{|\Delta Y|}{|\Delta X|}\right) + \text{kadran düzeltmesi}');
+
+        // 3. Temel Ödev
+        r('f3eq1', '\alpha_{BC} = \alpha_{AB} + 200^g + \beta \pmod{400^g}');
+
+        // Sine
+        r('f4eq1', '\frac{a}{\sin(\alpha)} = \frac{b}{\sin(\beta)} = \frac{c}{\sin(\gamma)}');
     }
 }
 
+/* ═══ UTILITY ═══ */
+function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/* ═══ BOOT ═══ */
 document.addEventListener('DOMContentLoaded', () => {
-    window.appInstance = new App();
+    window.FCU = new App();
 });
