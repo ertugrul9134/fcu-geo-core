@@ -168,20 +168,36 @@ class App {
             zoomControl: true
         });
 
+        // --- Tile Layers (All free, no API key required) ---
         const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 22,
-            attribution: '© OpenStreetMap'
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
         });
 
-        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 22,
-            attribution: '© Esri'
+        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            attribution: '© Google'
         });
 
-        satellite.addTo(this.map); // Default: satellite
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            attribution: '© Google'
+        });
+
+        const topoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            maxZoom: 17,
+            attribution: '© OpenTopoMap'
+        });
+
+        osm.addTo(this.map); // Default: OSM (most reliable)
 
         L.control.layers(
-            { 'Uydu (Esri)': satellite, 'Sokak (OSM)': osm },
+            {
+                'Sokak (OSM)': osm,
+                'Uydu (Google)': googleSat,
+                'Hibrit (Google)': googleHybrid,
+                'Topoğrafik': topoMap
+            },
             null,
             { position: 'topright' }
         ).addTo(this.map);
