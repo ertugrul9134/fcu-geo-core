@@ -646,6 +646,59 @@ body::before {
     hyphens: auto;
 }
 
+/* ═══ ADJUSTMENT TABLE ═══ */
+.adj-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.85rem;
+    color: var(--text-1);
+}
+
+.adj-table th, .adj-table td {
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.adj-table th {
+    background: rgba(0, 0, 0, 0.3);
+    font-weight: 600;
+    color: var(--text-2);
+}
+
+.adj-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Gradients for residuals */
+.grad-green { background: linear-gradient(135deg, rgba(46, 204, 113, 0.15), rgba(46, 204, 113, 0.05)); }
+.grad-yellow { background: linear-gradient(135deg, rgba(241, 196, 15, 0.15), rgba(241, 196, 15, 0.05)); }
+.grad-red { background: linear-gradient(135deg, rgba(231, 76, 60, 0.15), rgba(231, 76, 60, 0.05)); }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.stat-box {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-val {
+    font-size: 1.3rem;
+    font-family: var(--font-mono);
+    color: var(--accent);
+    margin-top: 0.5rem;
+    display: block;
+}
+
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 900px) {
     .page-grid {

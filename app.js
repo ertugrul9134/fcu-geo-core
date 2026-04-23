@@ -367,38 +367,28 @@ class App {
 
         const numMeasured = Object.values(isMeasured).filter(Boolean).length;
         
-        let w = 0;
-        let corr = 0;
-
-        if (numMeasured === 3) {
-            const sum = angles[p1] + angles[p2] + angles[p3];
-            w = 200 - sum;
-            corr = w / 3;
-            
-            html += '<br>&beta;<sub>' + p1 + '</sub> = ' + angles[p1].toFixed(4) + '<sup>g</sup><br>';
-            html += '&beta;<sub>' + p2 + '</sub> = ' + angles[p2].toFixed(4) + '<sup>g</sup><br>';
-            html += '&beta;<sub>' + p3 + '</sub> = ' + angles[p3].toFixed(4) + '<sup>g</sup><br>';
-            html += 'Toplam = ' + sum.toFixed(4) + '<sup>g</sup><br>';
-            html += mathBlock('w = 200^g - (' + angles[p1].toFixed(4) + '^g + ' + angles[p2].toFixed(4) + '^g + ' + angles[p3].toFixed(4) + '^g) = ' + w.toFixed(4) + '^g');
-            html += 'Düzeltme = ' + corr.toFixed(4) + '<sup>g</sup> / yatay açı<br>';
-        } else {
-            if (numMeasured > 0) {
-                html += '<br><span class="highlight">Eksik yatay açılar koordinatlardan tamamlandı.</span><br>';
-            } else {
-                html += '<br><span class="err">Hiç yatay açı verisi bulunamadı → Koordinatlardan hesaplanıyor.</span><br>';
-            }
-            
-            const formatAngle = (p) => {
-                let text = '&beta;<sub>' + p + '</sub> = ' + angles[p].toFixed(4) + '<sup>g</sup>';
-                if (!isMeasured[p]) text += ' <i>(Koordinattan)</i>';
-                return text;
-            };
-            
-            html += '<br>' + formatAngle(p1) + '<br>';
-            html += formatAngle(p2) + '<br>';
-            html += formatAngle(p3) + '<br>';
-            html += 'Düzeltme = Uygulanmadı (Eksik ölçüm)<br>';
+        if (numMeasured < 3 && numMeasured > 0) {
+            html += '<br><span class="highlight">Eksik yatay açılar koordinatlardan tamamlandı.</span><br>';
+        } else if (numMeasured === 0) {
+            html += '<br><span class="err">Hiç yatay açı verisi bulunamadı → Koordinatlardan hesaplanıyor.</span><br>';
         }
+
+        const sum = angles[p1] + angles[p2] + angles[p3];
+        const w = 200 - sum;
+        const corr = w / 3;
+
+        const formatAngle = (p) => {
+            let text = '&beta;<sub>' + p + '</sub> = ' + angles[p].toFixed(4) + '<sup>g</sup>';
+            if (!isMeasured[p]) text += ' <i>(Koordinattan)</i>';
+            return text;
+        };
+        
+        html += '<br>' + formatAngle(p1) + '<br>';
+        html += formatAngle(p2) + '<br>';
+        html += formatAngle(p3) + '<br>';
+        html += 'Toplam = ' + sum.toFixed(4) + '<sup>g</sup><br>';
+        html += mathBlock('w = 200^g - (' + angles[p1].toFixed(4) + '^g + ' + angles[p2].toFixed(4) + '^g + ' + angles[p3].toFixed(4) + '^g) = ' + w.toFixed(4) + '^g');
+        html += 'Düzeltme = ' + corr.toFixed(4) + '<sup>g</sup> / yatay açı<br>';
 
         angles[p1] += corr;
         angles[p2] += corr;
@@ -479,7 +469,7 @@ class App {
         html += 'Sapma: &Delta;Y = <span class="' + (ey > 0.05 ? 'err' : 'highlight') + '">' + ey.toFixed(3) + 'm</span>, &Delta;X = <span class="' + (ex > 0.05 ? 'err' : 'highlight') + '">' + ex.toFixed(3) + 'm</span>';
         html += '</div>';
 
-        // ——— STEP 5: 3. Temel Ödev (Azimuth Relay) ———
+        // ——— STEP 5: 3. Temel Ödev (Açı Nakli) ———
         html += '<div class="result-section"><strong>⑤ 3. Temel Ödev (Açı Nakli)</strong>';
         const relay = normalizeGon(r12.azimuth + 200 + angles[p2]);
         html += mathBlock('\\alpha_{' + p2 + p3 + '} = \\alpha_{' + p1 + p2 + '} + 200^g + \\beta\'_{' + p2 + '} \\pmod{400^g}');
@@ -490,6 +480,134 @@ class App {
         html += '</div>';
 
         document.getElementById('resultsContent').innerHTML = html;
+
+        // Trigger adjustment calculation for the new tab
+        this.calculateAdjustment(p1, p2, p3);
+    }
+
+    /* ——— Adjustment & Statistics Engine ——— */
+    calculateAdjustment(p1, p2, p3) {
+        const points = [p1, p2, p3];
+        let residuals = []; 
+        
+        const getGradClass = (v, isAngle) => {
+            const absV = Math.abs(v);
+            if (isAngle) {
+                if (absV < 0.005) return 'grad-green';
+                if (absV < 0.020) return 'grad-yellow';
+                return 'grad-red';
+            } else {
+                if (absV < 0.010) return 'grad-green';
+                if (absV < 0.030) return 'grad-yellow';
+                return 'grad-red';
+            }
+        };
+
+        // 1. Evaluate Angles (Yatay Açı)
+        points.forEach((center) => {
+            const others = points.filter(p => p !== center);
+            const l_meas = this.db.dir(center, others[0]) !== null && this.db.dir(center, others[1]) !== null 
+                ? (() => {
+                    let diff = Math.abs(this.db.dir(center, others[0]) - this.db.dir(center, others[1]));
+                    return diff > 200 ? 400 - diff : diff;
+                })() 
+                : null;
+
+            if (l_meas !== null) {
+                const cC = this.db.coords[center];
+                const c1 = this.db.coords[others[0]];
+                const c2 = this.db.coords[others[1]];
+                const a1 = secondFundamental(cC.Y, cC.X, c1.Y, c1.X).azimuth;
+                const a2 = secondFundamental(cC.Y, cC.X, c2.Y, c2.X).azimuth;
+                let l_theo = Math.abs(a2 - a1);
+                if (l_theo > 200) l_theo = 400 - l_theo;
+
+                const v = l_meas - l_theo;
+                residuals.push({
+                    type: 'Yatay Açı (g)',
+                    label: `&beta;<sub>${center}</sub>`,
+                    l_meas: l_meas.toFixed(4),
+                    l_theo: l_theo.toFixed(4),
+                    v: v.toFixed(4),
+                    vNum: v,
+                    gradClass: getGradClass(v, true)
+                });
+            }
+        });
+
+        // 2. Evaluate Distances (Mesafe)
+        const lines = [[p1, p2], [p2, p3], [p3, p1]];
+        lines.forEach(line => {
+            const [a, b] = line;
+            let l_meas = this.db.dist(a, b);
+            if (l_meas === null) l_meas = this.db.dist(b, a);
+
+            if (l_meas !== null) {
+                const cA = this.db.coords[a];
+                const cB = this.db.coords[b];
+                const l_theo = secondFundamental(cA.Y, cA.X, cB.Y, cB.X).distance;
+                
+                const v = l_meas - l_theo;
+                residuals.push({
+                    type: 'Mesafe (m)',
+                    label: `S<sub>${a}-${b}</sub>`,
+                    l_meas: l_meas.toFixed(3),
+                    l_theo: l_theo.toFixed(3),
+                    v: v.toFixed(3),
+                    vNum: v,
+                    gradClass: getGradClass(v, false)
+                });
+            }
+        });
+
+        let html = '<table class="adj-table">';
+        html += '<tr><th>Veri Tipi</th><th>Ölçü (Nokta)</th><th>Ölçülen (L)</th><th>Teorik (L₀)</th><th>Fark (v = L - L₀)</th></tr>';
+
+        if (residuals.length === 0) {
+            html += '<tr><td colspan="5" style="color: var(--text-3); font-style: italic;">Seçili üçgende ölçülmüş yatay açı veya mesafe bulunamadı.</td></tr>';
+        } else {
+            residuals.forEach(r => {
+                html += `<tr class="${r.gradClass}">
+                    <td>${r.type}</td>
+                    <td>${r.label}</td>
+                    <td>${r.l_meas}</td>
+                    <td>${r.l_theo}</td>
+                    <td style="font-weight:bold;">${r.v}</td>
+                </tr>`;
+            });
+        }
+        html += '</table>';
+
+        if (residuals.length > 0) {
+            let sumSq = 0;
+            residuals.forEach(r => sumSq += Math.pow(r.vNum, 2));
+            const n = residuals.length;
+            const rms = Math.sqrt(sumSq / n);
+            const u = 1;
+            const m0 = n > u ? Math.sqrt(sumSq / (n - u)) : rms;
+            const chiSq = sumSq * 1000; 
+
+            html += `<div class="stat-grid">
+                <div class="stat-box">
+                    <span style="color:var(--text-2); font-size:0.8rem;">RMS (Kök Ortalama Kare)</span>
+                    <span class="stat-val">${rms.toFixed(4)}</span>
+                </div>
+                <div class="stat-box">
+                    <span style="color:var(--text-2); font-size:0.8rem;">Standart Sapma (m₀)</span>
+                    <span class="stat-val">${m0.toFixed(4)}</span>
+                </div>
+                <div class="stat-box">
+                    <span style="color:var(--text-2); font-size:0.8rem;">&Sigma;v² (Hata Kareleri)</span>
+                    <span class="stat-val">${sumSq.toFixed(5)}</span>
+                </div>
+                <div class="stat-box">
+                    <span style="color:var(--text-2); font-size:0.8rem;">İstatistiksel Temsil (&chi;²)</span>
+                    <span class="stat-val">${chiSq.toFixed(4)}</span>
+                </div>
+            </div>`;
+        }
+
+        document.getElementById('adjustmentContent').innerHTML = html;
     }
 
     /* ——— Static Formula Rendering ——— */

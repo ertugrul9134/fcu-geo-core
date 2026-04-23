@@ -1,28 +1,33 @@
 <!DOCTYPE html>
 <html lang="tr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="FCU Jeodezik Hesaplama Sistemi - Nirengi ve Üçgen Hesaplamaları">
     <title>FCU Jeodezik Çekirdek | Nirengi Protokolü</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
     <!-- ═══════════════ GLASSMORPHIC HEADER ═══════════════ -->
     <header id="appHeader" class="glass-header">
         <div class="header-inner">
-            <div class="logo-group" id="logoLink" style="cursor: pointer;" onclick="document.getElementById('navMapBtn').click();">
+            <div class="logo-group" id="logoLink" style="cursor: pointer;"
+                onclick="document.getElementById('navMapBtn').click();">
                 <div class="logo-icon">
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
-                        <line x1="12" y1="22" x2="12" y2="15.5"/>
-                        <line x1="22" y1="8.5" x2="12" y2="15.5"/>
-                        <line x1="2" y1="8.5" x2="12" y2="15.5"/>
+                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+                        <line x1="12" y1="22" x2="12" y2="15.5" />
+                        <line x1="22" y1="8.5" x2="12" y2="15.5" />
+                        <line x1="2" y1="8.5" x2="12" y2="15.5" />
                     </svg>
                 </div>
                 <div class="logo-text">
@@ -32,20 +37,45 @@
             </div>
             <nav class="header-nav">
                 <button id="navMapBtn" class="nav-btn active" data-page="map">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                        <line x1="8" y1="2" x2="8" y2="18" />
+                        <line x1="16" y1="6" x2="16" y2="22" />
+                    </svg>
                     Harita
                 </button>
                 <button id="navDbBtn" class="nav-btn" data-page="db">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3" />
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                    </svg>
                     Veritabanı
                 </button>
                 <button id="navFormulasBtn" class="nav-btn" data-page="formulas">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                    </svg>
                     Formüller
                 </button>
                 <button id="navReportBtn" class="nav-btn" data-page="report">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
                     Rapor
+                </button>
+                <button id="navAdjustmentBtn" class="nav-btn" data-page="adjustment">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10" />
+                        <line x1="12" y1="20" x2="12" y2="4" />
+                        <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    Dengeleme
                 </button>
             </nav>
             <div class="header-status">
@@ -78,11 +108,18 @@
                     </div>
                     <div class="btn-row">
                         <button id="calculateBtn" class="btn btn-primary" disabled>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
                             HESAPLA
                         </button>
                         <button id="clearBtn" class="btn btn-outline">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
                             TEMİZLE
                         </button>
                     </div>
@@ -118,11 +155,20 @@
                 </div>
                 <div class="btn-row db-actions">
                     <button id="saveDbBtn" class="btn btn-primary">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                            <polyline points="17 21 17 13 7 13 7 21" />
+                            <polyline points="7 3 7 8 15 8" />
+                        </svg>
                         KAYDET
                     </button>
                     <button id="resetDbBtn" class="btn btn-danger">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="1 4 1 10 7 10" />
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                        </svg>
                         VARSAYILANA SIFIRLA
                     </button>
                 </div>
@@ -136,7 +182,8 @@
             <div class="formulas-grid">
                 <div class="glass-panel formula-card">
                     <h3>1. Temel Ödev</h3>
-                    <p class="formula-desc">Bilinen bir noktadan, azimut ve mesafe ile bilinmeyen noktanın koordinatlarını hesaplar.</p>
+                    <p class="formula-desc">Bilinen bir noktadan, azimut ve mesafe ile bilinmeyen noktanın
+                        koordinatlarını hesaplar.</p>
                     <div class="formula-box" id="formula1">
                         <strong>Bilinen:</strong> Y<sub>A</sub>, X<sub>A</sub>, α (azimut), S (mesafe)<br>
                         <strong>İstenen:</strong> Y<sub>B</sub>, X<sub>B</sub>
@@ -163,7 +210,8 @@
 
                 <div class="glass-panel formula-card">
                     <h3>3. Temel Ödev</h3>
-                    <p class="formula-desc">Bir köşe noktasından geçen doğrultu ile kırılma açısı kullanarak yeni doğrultuyu hesaplar.</p>
+                    <p class="formula-desc">Bir köşe noktasından geçen doğrultu ile kırılma açısı kullanarak yeni
+                        doğrultuyu hesaplar.</p>
                     <div class="formula-box" id="formula3">
                         <strong>Bilinen:</strong> α<sub>AB</sub> (azimut), β (kırılma açısı)<br>
                         <strong>İstenen:</strong> α<sub>BC</sub>
@@ -199,49 +247,101 @@
                 <article class="report-body">
 
                     <h3>1. Giriş ve Hazırlık</h3>
-                    <p>13.10.2025 tarihinde yapılan Ölçme Uygulamaları dersinin ikinci uygulamasında, Yıldız Teknik Üniversitesi Davutpaşa Yerleşkesi çevresindeki nirengi noktalarında açı ve mesafe ölçümleri gerçekleştirildi. Dersimizi yürüten hocamız, bugün yapacağımız uygulamalar hakkında genel bilgi verdikten sonra İnşaat Fakültesi'ndeki laboratuvarımıza geçtik. Laboratuvardan jalon, jalon sehpası, çekül, T2 teodoliti ve sehpayı aldık. Bir önceki haftada ölçümler yaptığımız sahaya tekrar gittik.</p>
+                    <p>Ölçme Uygulamaları dersinin ikinci uygulamasında, Yıldız Teknik Üniversitesi Davutpaşa Yerleşkesi
+                        çevresindeki nirengi noktalarında açı ve mesafe ölçümleri gerçekleştirildi. Dersimizi yürüten
+                        Nedim Onur hocamız, bugün yapacağımız uygulamalar hakkında genel bilgi verdikten sonra İnşaat
+                        Fakültesi'ndeki laboratuvarımıza geçtik. Laboratuvardan jalon, jalon sehpası, çekül, T2
+                        teodoliti ve sehpayı aldık. Bir önceki haftada ölçümler yaptığımız sahaya tekrar gittik.</p>
 
                     <h3>2. Teodolit Kurulumu</h3>
-                    <p>Geçen hafta P5 olarak adlandırdığımız sabit noktamıza gelerek hocamızın anlatımı ve öncülüğünde sehpamızı bu noktaya yerleştirdik. Sehpanın ayaklarını ideal bir uzunluğa ayarladıktan sonra teodolitimizi üstüne yerleştirdik. Aleti alt kısmından sıkarak sehpaya sabitledik. Ayaklarıyla oynayıp sehpaya sabitledikten sonra optik şaküle bakarak zemindeki çiviyi, yani artı (+) olan kısmın ortasına denk getirmek için sehpanın ayaklarında oynamalar yaptık.</p>
-                    <p>Ardından küresel düzeçte bulunan kabarcığın olduğu doğrultudaki sehpa ayağında küçük indirme ve kaldırma hareketleri yaparak kabarcık tam ortadaki dairenin içine denk gelene kadar oynadık. Böylece asıl ekseni düşeylemiş olduk. Optik şakülden tekrardan bakarak oluşan küçük kaymayı düzelttik.</p>
-                    <p>Aletimizi kullanmaya geçmeden önce son olarak silindirik düzecimizi ayarlamaya koyulduk. Bunun içinde dairemizi, bulunduğumuz açıda tam ortaya denk getirdikten sonra teodoliti 100 gon çevirip bu işlemi tekrarladık. Aleti ilk bulunduğu doğrultuya getirerek son ayarlamamızı yaptık.</p>
+                    <p>Geçen hafta P5 olarak adlandırdığımız sabit noktamıza gelerek hocamızın anlatımı ve öncülüğünde
+                        sehpamızı bu noktaya yerleştirdik. Sehpanın ayaklarını ideal bir uzunluğa ayarladıktan sonra
+                        teodolitimizi üstüne yerleştirdik. Aleti alt kısmından sıkarak sehpaya sabitledik. Ayaklarıyla
+                        oynayıp sehpaya sabitledikten sonra optik şaküle bakarak zemindeki çiviyi, yani artı (+) olan
+                        kısmın ortasına denk getirmek için sehpanın ayaklarında oynamalar yaptık.</p>
+                    <p>Ardından küresel düzeçte bulunan kabarcığın olduğu doğrultudaki sehpa ayağında küçük indirme ve
+                        kaldırma hareketleri yaparak kabarcık tam ortadaki dairenin içine denk gelene kadar oynadık.
+                        Böylece asıl ekseni düşeylemiş olduk. Optik şakülden tekrardan bakarak oluşan küçük kaymayı
+                        düzelttik.</p>
+                    <p>Aletimizi kullanmaya geçmeden önce son olarak silindirik düzecimizi ayarlamaya koyulduk. Bunun
+                        içinde dairemizi, bulunduğumuz açıda tam ortaya denk getirdikten sonra teodoliti 100 gon çevirip
+                        bu işlemi tekrarladık. Aleti ilk bulunduğu doğrultuya getirerek son ayarlamamızı yaptık.</p>
 
                     <h3>3. Ölçüm Süreci</h3>
-                    <p>Kullanıma hazır hale getirdiğimiz aletimizle P6 ve P7 noktalarındaki jalonların görünen en alt kısımlarını hedef alarak her bir nokta için üçer defa açı ölçümü yaptık. Bu aşamada yatay ve düşey hareket vidaları, görüntü netlik ayarı, açı okuma dürbünü gibi kısımları detaylı şekilde kullanarak aletin genel hatlarını öğrendik.</p>
-                    <p>Ölçümlerimizi gon biriminde kaydettik. Gon, bir tam dairenin 400'e bölünmesiyle elde edilir ve jeodezik hesaplamalarda derece yerine tercih edilir. Çelik şerit metre ile noktalar arası mesafe ölçümleri de ayrıca yapıldı. Çelik şerit metreyi kullanırken gerginliğinin sabit tutulmasına ve zemine paralel olmasına dikkat ettik.</p>
+                    <p>Kullanıma hazır hale getirdiğimiz aletimizle P6 ve P7 noktalarındaki jalonların görünen en alt
+                        kısımlarını hedef alarak her bir nokta için üçer defa açı ölçümü yaptık. Bu aşamada yatay ve
+                        düşey hareket vidaları, görüntü netlik ayarı, açı okuma dürbünü gibi kısımları detaylı şekilde
+                        kullanarak aletin genel hatlarını öğrendik.</p>
+                    <p>Ölçümlerimizi gon biriminde kaydettik. Gon, bir tam dairenin 400'e bölünmesiyle elde edilir ve
+                        jeodezik hesaplamalarda derece yerine tercih edilir. Çelik şerit metre ile noktalar arası mesafe
+                        ölçümleri de ayrıca yapıldı. Çelik şerit metreyi kullanırken gerginliğinin sabit tutulmasına ve
+                        zemine paralel olmasına dikkat ettik.</p>
 
                     <h3>4. Veritabanı ve Koordinat Sistemi</h3>
-                    <p>Sahadan elde ettiğimiz tüm veriler dijital ortama aktarıldı. Noktaların koordinatları TUREF/TM30 (Transverse Mercator, merkez meridyen 30°E) koordinat referans sistemindedir. Sağa değer (Y/Easting) ve yukarı değer (X/Northing) olarak kaydedildi. Sistemde toplam 9 nokta (41, 43, 44, 45, 46, 47, 48, 49, 50) bulunmaktadır. Bu noktaların her birinin Y ve X koordinatları veritabanına girildi.</p>
-                    <p>Doğrultu ölçüleri her bir duruş noktasından bakılan noktalara yönelik olarak gon cinsinden kayıt altına alındı. Mesafe ölçümleri ise çelik şerit metre ile metre cinsinden elde edildi. Bazı kenar mesafeleri doğrudan ölçülemediğinden sinüs teoremi kullanılarak hesaplandı.</p>
+                    <p>Sahadan elde ettiğimiz tüm veriler dijital ortama aktarıldı. Noktaların koordinatları TUREF/TM30
+                        (Transverse Mercator, merkez meridyen 30°E) koordinat referans sistemindedir. Sağa değer
+                        (Y/Easting) ve yukarı değer (X/Northing) olarak kaydedildi. Sistemde toplam 9 nokta (41, 43, 44,
+                        45, 46, 47, 48, 49, 50) bulunmaktadır. Bu noktaların her birinin Y ve X koordinatları
+                        veritabanına girildi.</p>
+                    <p>Doğrultu ölçüleri her bir duruş noktasından bakılan noktalara yönelik olarak gon cinsinden kayıt
+                        altına alındı. Mesafe ölçümleri ise çelik şerit metre ile metre cinsinden elde edildi. Bazı
+                        kenar mesafeleri doğrudan ölçülemediğinden sinüs teoremi kullanılarak hesaplandı.</p>
 
                     <h3>5. Hesaplama Yöntemleri</h3>
 
                     <h4>5.1. Açı Kapanma Hatası ve Dağıtımı</h4>
-                    <p>Bir üçgenin iç açıları toplamı 200 gon olmalıdır. Ölçüm hatalarından dolayı toplam bu değerden sapabilir. Sapma miktarı (w) eşit olarak üç açıya dağıtılarak düzeltilmiş açılar elde edilir. Bu dağıtım işlemi, nirengi hesaplarının doğruluğu için zorunludur.</p>
+                    <p>Bir üçgenin iç açıları toplamı 200 gon olmalıdır. Ölçüm hatalarından dolayı toplam bu değerden
+                        sapabilir. Sapma miktarı (w) eşit olarak üç açıya dağıtılarak düzeltilmiş açılar elde edilir. Bu
+                        dağıtım işlemi, nirengi hesaplarının doğruluğu için zorunludur.</p>
 
                     <h4>5.2. Sinüs Teoremi ile Kenar Hesabı</h4>
-                    <p>Bilinen bir kenar ve karşı açısı ile diğer kenarların uzunlukları sinüs oranıyla hesaplandı. Bu yöntem özellikle doğrudan ölçüm yapılamayan kenarlarda devreye girer.</p>
+                    <p>Bilinen bir kenar ve karşı açısı ile diğer kenarların uzunlukları sinüs oranıyla hesaplandı. Bu
+                        yöntem özellikle doğrudan ölçüm yapılamayan kenarlarda devreye girer.</p>
 
                     <h4>5.3. İkinci Temel Ödev (Ters Hesap)</h4>
-                    <p>Koordinatları bilinen iki nokta arasındaki azimut ve mesafe hesaplandı. ΔY ve ΔX farkları alınarak mesafe Pisagor bağıntısıyla, azimut ise arktanjant fonksiyonu ve kadran düzeltmesi ile elde edildi.</p>
+                    <p>Koordinatları bilinen iki nokta arasındaki azimut ve mesafe hesaplandı. ΔY ve ΔX farkları
+                        alınarak mesafe Pisagor bağıntısıyla, azimut ise arktanjant fonksiyonu ve kadran düzeltmesi ile
+                        elde edildi.</p>
 
                     <h4>5.4. Birinci Temel Ödev (Düz Hesap)</h4>
-                    <p>Bilinen bir noktanın koordinatları, azimut ve mesafe kullanılarak bilinmeyen noktanın koordinatları hesaplandı. Y bileşeni sinüs, X bileşeni kosinüs çarpanlarıyla elde edildi. Hesaplanan koordinatlar veritabanındaki değerlerle karşılaştırılarak sapma kontrol edildi.</p>
+                    <p>Bilinen bir noktanın koordinatları, azimut ve mesafe kullanılarak bilinmeyen noktanın
+                        koordinatları hesaplandı. Y bileşeni sinüs, X bileşeni kosinüs çarpanlarıyla elde edildi.
+                        Hesaplanan koordinatlar veritabanındaki değerlerle karşılaştırılarak sapma kontrol edildi.</p>
 
                     <h4>5.5. Üçüncü Temel Ödev (Açı Nakli)</h4>
-                    <p>Bir doğrultudan diğerine geçiş, bilinen azimut değerine 200 gon ve kırılma açısı eklenerek 400 gon modunda yapıldı. Hesaplanan yeni azimut, doğrudan elde edilen azimutla karşılaştırılarak doğrulandı.</p>
+                    <p>Bir doğrultudan diğerine geçiş, bilinen azimut değerine 200 gon ve kırılma açısı eklenerek 400
+                        gon modunda yapıldı. Hesaplanan yeni azimut, doğrudan elde edilen azimutla karşılaştırılarak
+                        doğrulandı.</p>
 
                     <h3>6. Ölçülen ve Hesaplanan Kenarların Karşılaştırması</h3>
-                    <p>Çelik şerit metre ile ölçülen kenarlar, koordinatlardan hesaplanan kenarlarla karşılaştırıldı. İzin verilen hata sınırı (tolerans) aşağıdaki formül ile hesaplanır:</p>
+                    <p>Çelik şerit metre ile ölçülen kenarlar, koordinatlardan hesaplanan kenarlarla karşılaştırıldı.
+                        İzin verilen hata sınırı (tolerans) aşağıdaki formül ile hesaplanır:</p>
                     <div class="formula-render" style="text-align: center;">
                         <div id="fTolerance"></div>
                     </div>
-                    <p>Mesela 47-48 kenarı ölçümde 11.755 m, koordinatlardan 11.740 m olarak hesaplandı. 1.5 cm fark, kabul edilebilir tolerans sınırı içindedir. Bu karşılaştırma her üçgen için yapıldı ve sonuçlar tutarlı bulundu.</p>
+                    <p>Mesela 47-48 kenarı ölçümde 11.755 m, koordinatlardan 11.740 m olarak hesaplandı. 1.5 cm fark,
+                        kabul edilebilir tolerans sınırı içindedir. Bu karşılaştırma her üçgen için yapıldı ve sonuçlar
+                        tutarlı bulundu.</p>
 
                     <h3>7. Sonuç</h3>
-                    <p>Teodolit kurulumu, açı ve mesafe ölçümü, verilerin sayısal ortamda işlenmesi ve üç temel ödev ile sinüs teoreminin uygulanması bu çalışmanın kapsamını oluşturdu. Açı kapanma hataları dağıtıldı, kenar hesapları sinüs teoremiyle yapıldı, ölçülen kenarlarla hesaplanan kenarlar karşılaştırıldı ve tüm noktaların koordinatları doğrulandı. Ölçümlerimizi kaydettikten sonra aletleri toplayıp laboratuvara teslim ederek sahayı terk ettik.</p>
+                    <p>Teodolit kurulumu, açı ve mesafe ölçümü, verilerin sayısal ortamda işlenmesi ve üç temel ödev ile
+                        sinüs teoreminin uygulanması bu çalışmanın kapsamını oluşturdu. Açı kapanma hataları dağıtıldı,
+                        kenar hesapları sinüs teoremiyle yapıldı, ölçülen kenarlarla hesaplanan kenarlar karşılaştırıldı
+                        ve tüm noktaların koordinatları doğrulandı. Ölçümlerimizi kaydettikten sonra aletleri toplayıp
+                        laboratuvara teslim ederek sahayı terk ettik.</p>
 
                 </article>
+            </div>
+        </div>
+
+        <!-- ═══════════════ PAGE: ADJUSTMENT (DENGELEME) ═══════════════ -->
+        <div id="pageAdjustment" class="page" style="display: none;">
+            <div class="glass-panel" style="margin-bottom: 2rem;">
+                <h2 style="font-family: var(--font-mono); color: var(--accent); margin-bottom: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">İstatistiksel Hata Analizi (En Küçük Kareler)</h2>
+                <p style="color: var(--text-2); font-size: 0.9rem; margin-bottom: 1rem;">Seçili üçgen için ölçülen yatay açı ve mesafeler, kesin koordinatlardan türetilen teorik değerlerle karşılaştırılır.</p>
+                <div id="adjustmentContent">
+                    <p class="empty-state">Lütfen harita üzerinden hesaplama yapmak için 3 nokta seçiniz.</p>
+                </div>
             </div>
         </div>
     </main>
@@ -253,4 +353,5 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
     <script type="module" src="app.js"></script>
 </body>
+
 </html>
