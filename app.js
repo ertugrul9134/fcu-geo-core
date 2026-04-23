@@ -279,9 +279,9 @@ class App {
 
             const marker = L.marker(ll, { icon, riseOnHover: true }).addTo(this.map);
 
-            marker.bindPopup(
+            marker.bindTooltip(
                 '<b>Nokta ' + id + '</b><br>Y: ' + c.Y.toFixed(3) + '<br>X: ' + c.X.toFixed(3),
-                { closeButton: false, offset: [0, -8] }
+                { direction: 'top', offset: [0, -10], opacity: 0.9 }
             );
 
             marker.on('click', () => this.toggleNode(Number(id)));
