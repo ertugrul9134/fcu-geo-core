@@ -4,13 +4,29 @@ Yıldız Teknik Üniversitesi Ölçme Uygulamaları dersi kapsamında geliştiri
 
 ## Canlı Demo
 
-**https://ertugrul9134.github.io/fundamentals_surveying/**
+**https://fundamentals-surveying.surge.sh**
+
+---
+
+## Proje Yürütücüsü (Project Overview Editor) Bilgileri
+**⚠️ DİKKAT: Bu bölüm proje yöneticisi/yürütücüsü içindir.**
+
+Uygulamanın yayında olduğu özel alan adı (Surge) herhangi bir abonelik veya ücretli plan gerektirmeyen, bağımsız ve ücretsiz bir altyapı üzerine kurulmuştur. İlerleyen süreçte bu altyapıyı yönetmek, projeyi yayından kaldırmak veya güncellemek isterseniz aşağıdaki yönetici (login) bilgilerini kullanabilirsiniz:
+
+- **Platform:** [Surge.sh](https://surge.sh/)
+- **Yönetici E-Posta:** `ertugrul_fcu@1secmail.com`
+- **Şifre:** `Geocore2026!`
+
+*(Uygulamayı yerelde terminalden güncelledikten sonra tekrar aynı adrese deploy etmek isterseniz terminalde `npx surge ./ fundamentals-surveying.surge.sh` komutunu çalıştırmanız ve istendiğinde bu bilgileri girmeniz yeterlidir.)*
+
+---
 
 ## Özellikler
 
 - **Leaflet Harita** — TUREF/TM30 koordinatları WGS84'e dönüştürülerek OSM, Google Uydu ve Google Hibrit katmanlarında gösterilir
 - **Nokta Seçimi** — Harita üzerinden 3 nokta seçilerek üçgen oluşturulur
 - **Hesaplama Motoru** — Açı kapanma hatası dağıtımı, Sinüs Teoremi, 1., 2. ve 3. Temel Ödev hesapları
+- **Dengeleme (İstatistiksel Analiz)** — Seçilen üçgen ağındaki ölçülerle koordinattan gelen kesin değerleri karşılaştırır, En Küçük Kareler parametreleri (RMS, Standart Sapma, $\chi^2$) türetir ve hataları ısı haritası ile görselleştirir.
 - **KaTeX Formüller** — Tüm formüller profesyonel matematik dizgisiyle render edilir
 - **Veritabanı Yönetimi** — JSON düzenleyici ile koordinat ve ölçüm verileri düzenlenir, localStorage'a kaydedilir
 - **Rapor** — Uygulama-2 kapsamında yapılan saha çalışmasının detaylı Türkçe raporu
