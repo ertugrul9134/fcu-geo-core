@@ -1,58 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FCU Geodetic Core | Triangulation</title>
-    <link rel="stylesheet" href="style.css">
+    <title>FCU Jeodezik Çekirdek | Nirengi Protokolü</title>
+    
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- KaTeX CSS for Formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71PT0KILfu" crossorigin="anonymous">
+
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
         <header class="app-header">
             <div class="logo">FCU <span>GEO-CORE</span></div>
-            <div class="status-indicator">
-                <span class="dot"></span>
-                <span>SYSTEM ACTIVE</span>
+            <div class="header-actions">
+                <button id="openDbBtn" class="action-btn header-btn">VERİTABANI YÖNETİMİ</button>
+                <div class="status-indicator">
+                    <span class="dot"></span>
+                    <span>SİSTEM AKTİF</span>
+                </div>
             </div>
         </header>
         
         <main class="main-content">
             <section class="visualizer-section">
                 <div class="panel-header">
-                    <h2>Geodetic Visualizer</h2>
-                    <p>Select 3 nodes to initiate triangulation protocol.</p>
+                    <h2>Jeodezik Harita</h2>
+                    <p>Nirengi hesaplamasını başlatmak için haritadan 3 nokta seçin.</p>
                 </div>
-                <div class="canvas-container">
-                    <canvas id="geoCanvas"></canvas>
-                    <div id="tooltip" class="tooltip hidden"></div>
+                <div class="map-container">
+                    <div id="geoMap"></div>
                 </div>
             </section>
 
             <section class="telemetry-section">
                 <div class="panel-header">
-                    <h2>Operation Telemetry</h2>
-                    <p>Real-time calculation matrix.</p>
+                    <h2>Operasyon Telemetrisi</h2>
+                    <p>Gerçek zamanlı hesaplama matrisi ve algoritmik döküm.</p>
                 </div>
                 
                 <div class="card selected-nodes-card">
-                    <h3>Selected Nodes</h3>
+                    <h3>Seçili Noktalar</h3>
                     <div id="selectedNodesList" class="node-list">
-                        <span class="empty-state">Awaiting selection...</span>
+                        <span class="empty-state">Seçim bekleniyor...</span>
                     </div>
-                    <button id="calculateBtn" class="action-btn" disabled>EXECUTE PROTOCOL</button>
-                    <button id="clearBtn" class="action-btn secondary">CLEAR</button>
+                    <button id="calculateBtn" class="action-btn" disabled>PROTOKOLÜ ÇALIŞTIR</button>
+                    <button id="clearBtn" class="action-btn secondary">TEMİZLE</button>
                 </div>
 
                 <div class="card results-card" id="resultsCard">
-                    <h3>Triangulation Results</h3>
+                    <h3>Nirengi Sonuçları ve Formüller</h3>
                     <div id="resultsContent" class="results-content">
-                        <span class="empty-state">Awaiting execution...</span>
+                        <span class="empty-state">Yürütme bekleniyor...</span>
                     </div>
                 </div>
             </section>
         </main>
     </div>
+
+    <!-- Database Management Modal -->
+    <div id="dbModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Veritabanı Yönetimi</h2>
+                <button id="closeDbBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-info">Sistemin kullanacağı koordinatları ve ölçüm telemetrisini JSON formatında düzenleyin.</p>
+                <div class="db-section">
+                    <h3>Koordinatlar (Y, X)</h3>
+                    <textarea id="coordsInput" class="code-editor"></textarea>
+                </div>
+                <div class="db-section">
+                    <h3>Ölçümler (dn, bn, doğrultu, mesafe)</h3>
+                    <textarea id="measurementsInput" class="code-editor"></textarea>
+                </div>
+                <button id="saveDbBtn" class="action-btn">VERİTABANINI GÜNCELLE</button>
+                <button id="resetDbBtn" class="action-btn destructive">VARSAYILANLARA SIFIRLA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Proj4js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js" integrity="sha512-lO8O79bOOm3c+8mCC84ZWc43sO+fnOaXG9G+XS0ewRzZ7360AcuzxgC80q0K0jYq8o8Nmtx++h9zL8KzZ+aY+Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    
+    <!-- KaTeX JS -->
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21h6RZv/phavutF+GqIGc/1Z1fK11/R+0A1kZ5+sXvSj29n2B2oG1A+Rj/bU4" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" integrity="sha384-+VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbOxyj0O+rX/rR00zL0u5f5qA" crossorigin="anonymous"></script>
+
+    <!-- App Logic -->
     <script type="module" src="app.js"></script>
 </body>
 </html>
