@@ -342,54 +342,75 @@ class App {
             return diff;
         };
 
+        const ca = (center, na, nb) => {
+            const cc = this.db.coords[center];
+            const a1 = secondFundamental(cc.Y, cc.X, this.db.coords[na].Y, this.db.coords[na].X).azimuth;
+            const a2 = secondFundamental(cc.Y, cc.X, this.db.coords[nb].Y, this.db.coords[nb].X).azimuth;
+            let d = Math.abs(a2 - a1);
+            if (d > 200) d = 400 - d;
+            return d;
+        };
+
         let angles = {};
-        angles[p1] = getAngle(p1, p2, p3);
-        angles[p2] = getAngle(p2, p1, p3);
-        angles[p3] = getAngle(p3, p1, p2);
+        let isMeasured = {};
+        [p1, p2, p3].forEach((p) => {
+            const others = [p1, p2, p3].filter(x => x !== p);
+            let ang = getAngle(p, others[0], others[1]);
+            if (ang !== null) {
+                angles[p] = ang;
+                isMeasured[p] = true;
+            } else {
+                angles[p] = ca(p, others[0], others[1]);
+                isMeasured[p] = false;
+            }
+        });
 
-        const hasMeasuredAngles = angles[p1] !== null && angles[p2] !== null && angles[p3] !== null;
+        const numMeasured = Object.values(isMeasured).filter(Boolean).length;
+        
+        let w = 0;
+        let corr = 0;
 
-        if (!hasMeasuredAngles) {
-            html += '<br><span class="err">Yeterli doğrultu verisi bulunamadı → Koordinatlardan hesaplanıyor.</span><br>';
-
-            const ca = (center, na, nb) => {
-                const cc = this.db.coords[center];
-                const a1 = secondFundamental(cc.Y, cc.X, this.db.coords[na].Y, this.db.coords[na].X).azimuth;
-                const a2 = secondFundamental(cc.Y, cc.X, this.db.coords[nb].Y, this.db.coords[nb].X).azimuth;
-                let d = Math.abs(a2 - a1);
-                if (d > 200) d = 400 - d;
-                return d;
+        if (numMeasured === 3) {
+            const sum = angles[p1] + angles[p2] + angles[p3];
+            w = 200 - sum;
+            corr = w / 3;
+            
+            html += '<br>&beta;<sub>' + p1 + '</sub> = ' + angles[p1].toFixed(4) + '<sup>g</sup><br>';
+            html += '&beta;<sub>' + p2 + '</sub> = ' + angles[p2].toFixed(4) + '<sup>g</sup><br>';
+            html += '&beta;<sub>' + p3 + '</sub> = ' + angles[p3].toFixed(4) + '<sup>g</sup><br>';
+            html += 'Toplam = ' + sum.toFixed(4) + '<sup>g</sup><br>';
+            html += mathBlock('w = 200^g - (' + angles[p1].toFixed(4) + '^g + ' + angles[p2].toFixed(4) + '^g + ' + angles[p3].toFixed(4) + '^g) = ' + w.toFixed(4) + '^g');
+            html += 'Düzeltme = ' + corr.toFixed(4) + '<sup>g</sup> / yatay açı<br>';
+        } else {
+            if (numMeasured > 0) {
+                html += '<br><span class="highlight">Eksik yatay açılar koordinatlardan tamamlandı.</span><br>';
+            } else {
+                html += '<br><span class="err">Hiç yatay açı verisi bulunamadı → Koordinatlardan hesaplanıyor.</span><br>';
+            }
+            
+            const formatAngle = (p) => {
+                let text = '&beta;<sub>' + p + '</sub> = ' + angles[p].toFixed(4) + '<sup>g</sup>';
+                if (!isMeasured[p]) text += ' <i>(Koordinattan)</i>';
+                return text;
             };
-
-            angles[p1] = ca(p1, p2, p3);
-            angles[p2] = ca(p2, p1, p3);
-            angles[p3] = ca(p3, p1, p2);
+            
+            html += '<br>' + formatAngle(p1) + '<br>';
+            html += formatAngle(p2) + '<br>';
+            html += formatAngle(p3) + '<br>';
+            html += 'Düzeltme = Uygulanmadı (Eksik ölçüm)<br>';
         }
 
-        const sum = angles[p1] + angles[p2] + angles[p3];
-        const w = 200 - sum;
-
-        html += '<br>&beta;<sub>' + p1 + '</sub> = ' + angles[p1].toFixed(4) + '<sup>g</sup><br>';
-        html += '&beta;<sub>' + p2 + '</sub> = ' + angles[p2].toFixed(4) + '<sup>g</sup><br>';
-        html += '&beta;<sub>' + p3 + '</sub> = ' + angles[p3].toFixed(4) + '<sup>g</sup><br>';
-        html += 'Toplam = ' + sum.toFixed(4) + '<sup>g</sup><br>';
-
-        html += mathBlock('w = 200^g - (' + angles[p1].toFixed(4) + '^g + ' + angles[p2].toFixed(4) + '^g + ' + angles[p3].toFixed(4) + '^g) = ' + w.toFixed(4) + '^g');
-
-        // Distribute error
-        const corr = w / 3;
         angles[p1] += corr;
         angles[p2] += corr;
         angles[p3] += corr;
 
-        html += 'Düzeltme = ' + corr.toFixed(4) + '<sup>g</sup> / açı<br>';
         html += '<span class="highlight">&beta;\'<sub>' + p1 + '</sub> = ' + angles[p1].toFixed(4) + '<sup>g</sup></span><br>';
         html += '<span class="highlight">&beta;\'<sub>' + p2 + '</sub> = ' + angles[p2].toFixed(4) + '<sup>g</sup></span><br>';
         html += '<span class="highlight">&beta;\'<sub>' + p3 + '</sub> = ' + angles[p3].toFixed(4) + '<sup>g</sup></span>';
         html += '</div>';
 
         // ——— STEP 2: Sine Theorem ———
-        html += '<div class="result-section"><strong>② Sinüs Teoremi (Kenar Hesabı)</strong>';
+        html += '<div class="result-section"><strong>② Sinüs Teoremi (Mesafe Hesabı)</strong>';
 
         let d12 = this.db.dist(p1, p2) || this.db.dist(p2, p1);
         let d23 = this.db.dist(p2, p3) || this.db.dist(p3, p2);
@@ -418,7 +439,7 @@ class App {
             d23 = d23 || ratio * Math.sin(angles[p1] * GON_TO_RAD);
             d31 = d31 || ratio * Math.sin(angles[p2] * GON_TO_RAD);
 
-            html += 'Baz kenar: S<sub>' + bA + '-' + bB + '</sub> = ' + baseD.toFixed(3) + 'm<br>';
+            html += 'Baz mesafe: S<sub>' + bA + '-' + bB + '</sub> = ' + baseD.toFixed(3) + 'm<br>';
             html += 'S<sub>' + p1 + '-' + p2 + '</sub> = <span class="highlight">' + d12.toFixed(3) + 'm</span><br>';
             html += 'S<sub>' + p2 + '-' + p3 + '</sub> = <span class="highlight">' + d23.toFixed(3) + 'm</span><br>';
             html += 'S<sub>' + p3 + '-' + p1 + '</sub> = <span class="highlight">' + d31.toFixed(3) + 'm</span>';
