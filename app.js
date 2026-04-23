@@ -127,17 +127,49 @@ class App {
     /* ——— Navigation ——— */
     bindNav() {
         const btns = document.querySelectorAll('.nav-btn');
+        const indicator = document.querySelector('.nav-indicator');
+        const navBar = document.querySelector('.header-nav');
+
+        const moveIndicator = (el) => {
+            if (!el || !indicator) return;
+            indicator.style.width = `${el.offsetWidth}px`;
+            indicator.style.transform = `translateX(${el.offsetLeft}px)`;
+            indicator.style.opacity = '1';
+        };
+
         btns.forEach(btn => {
             btn.addEventListener('click', () => {
                 btns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
                 document.getElementById('page' + capitalize(btn.dataset.page)).classList.add('active');
+                
+                moveIndicator(btn);
+
                 if (btn.dataset.page === 'map' && this.map) {
                     setTimeout(() => this.map.invalidateSize(), 100);
                 }
             });
+
+            btn.addEventListener('mouseenter', () => moveIndicator(btn));
         });
+
+        if (navBar) {
+            navBar.addEventListener('mouseleave', () => {
+                const activeBtn = document.querySelector('.nav-btn.active');
+                if (activeBtn) {
+                    moveIndicator(activeBtn);
+                } else if (indicator) {
+                    indicator.style.opacity = '0';
+                }
+            });
+        }
+
+        // Initialize indicator position
+        setTimeout(() => {
+            const activeBtn = document.querySelector('.nav-btn.active');
+            if (activeBtn) moveIndicator(activeBtn);
+        }, 100);
     }
 
     /* ——— Control Bindings ——— */
