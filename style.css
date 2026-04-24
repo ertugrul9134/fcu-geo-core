@@ -64,6 +64,129 @@ body::before {
     z-index: 0;
 }
 
+/* ═══ SPLASH SCREEN (AFTER EFFECTS) ═══ */
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--mocha-900);
+    z-index: 999999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out, visibility 0.5s;
+}
+
+.splash-screen.hidden {
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(1.05); /* Slight zoom out effect on exit */
+    pointer-events: none;
+}
+
+.splash-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+}
+
+/* Globe & Theodolite */
+.splash-globe {
+    width: 260px;
+    height: 260px;
+    margin-bottom: 1.5rem;
+    position: relative;
+    filter: drop-shadow(0 0 20px var(--accent-glow));
+    animation: globe-enter 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transform: scale(0);
+}
+
+#geoidCanvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+}
+
+.splash-globe svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+@keyframes globe-enter {
+    to { transform: scale(1); }
+}
+
+/* Typography & Glance */
+.splash-logo-wrapper {
+    position: relative;
+    overflow: hidden;
+    padding: 0 10px;
+    opacity: 0;
+    transform: translateY(15px);
+    animation: logo-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+}
+
+@keyframes logo-up {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.splash-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 4.5rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 6px;
+    margin: 0;
+    position: relative;
+}
+
+.splash-logo::before {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    color: #fff;
+    -webkit-text-stroke: 1px rgba(255,255,255,0.5);
+    background: linear-gradient(120deg, transparent 0%, transparent 40%, #ffffff 50%, transparent 60%, transparent 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: premium-glance 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    z-index: 2;
+}
+
+@keyframes premium-glance {
+    0% { background-position: 200% 0; filter: drop-shadow(0 0 0px rgba(255,255,255,0)); }
+    50% { filter: drop-shadow(0 0 20px rgba(255,255,255,0.8)); }
+    100% { background-position: -50% 0; filter: drop-shadow(0 0 0px rgba(255,255,255,0)); }
+}
+
+.splash-copyright {
+    position: absolute;
+    bottom: -60px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-3);
+    text-transform: uppercase;
+    opacity: 0;
+    animation: fade-in 0.6s ease forwards 0.8s;
+}
+
+@keyframes fade-in {
+    to { opacity: 1; }
+}
+
 /* ═══ GLASSMORPHIC HEADER ═══ */
 .glass-header {
     position: fixed;
@@ -334,6 +457,24 @@ body::before {
     margin: 10px 14px !important;
     line-height: 1.5 !important;
 }
+
+.leaflet-tooltip {
+    background: rgba(26, 20, 18, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    color: var(--text-1) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.8rem !important;
+    padding: 8px 12px !important;
+}
+
+.leaflet-tooltip-top::before { border-top-color: var(--accent) !important; }
+.leaflet-tooltip-bottom::before { border-bottom-color: var(--accent) !important; }
+.leaflet-tooltip-left::before { border-left-color: var(--accent) !important; }
+.leaflet-tooltip-right::before { border-right-color: var(--accent) !important; }
 
 /* Custom Map Node Icons */
 .node-marker {
@@ -713,7 +854,33 @@ body::before {
     display: block;
 }
 
+/* ═══ PARTICLES ═══ */
+#tsparticles {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
 /* ═══ RESPONSIVE ═══ */
+.mobile-menu-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    z-index: 1001;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+}
+
+.mobile-menu-btn:active {
+    background: rgba(255,255,255,0.1);
+}
+
 @media (max-width: 900px) {
     .page-grid {
         grid-template-columns: 1fr;
@@ -723,5 +890,43 @@ body::before {
     .formulas-grid { grid-template-columns: 1fr; }
     .header-inner { padding: 0 1rem; }
     .logo-sub { display: none; }
-    .nav-btn span { display: none; }
+    
+    .mobile-menu-btn {
+        display: block;
+    }
+    
+    .header-nav {
+        position: absolute;
+        top: var(--header-h);
+        left: 0;
+        right: 0;
+        background: rgba(26, 20, 18, 0.95);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        flex-direction: column;
+        padding: 1rem;
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--glass-border);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        display: none; /* hidden by default */
+    }
+
+    .header-nav.nav-open {
+        display: flex;
+        animation: slideDown 0.3s ease forwards;
+    }
+
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .nav-indicator { display: none; }
+
+    .nav-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.03);
+    }
 }

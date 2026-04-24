@@ -13,9 +13,43 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" />
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 </head>
 
 <body>
+
+    <!-- ═══════════════ SPLASH SCREEN (AFTER EFFECTS STYLE) ═══════════════ -->
+    <div id="splashScreen" class="splash-screen">
+        <div class="splash-content">
+            <div class="splash-globe">
+                <canvas id="geoidCanvas" width="320" height="320"></canvas>
+                <svg viewBox="0 0 100 100" width="100%" height="100%">
+                    <!-- Static Theodolite Silhouette -->
+                    <g class="theodolite" transform="translate(35, 22) scale(0.6)">
+                        <line x1="25" y1="60" x2="8" y2="95" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="25" y1="60" x2="42" y2="95" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="25" y1="60" x2="25" y2="95" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+                        <rect x="14" y="55" width="22" height="5" rx="2" fill="var(--text-1)"/>
+                        <path d="M18,35 L32,35 L30,55 L20,55 Z" fill="var(--text-2)"/>
+                        <rect x="3" y="25" width="44" height="12" rx="3" fill="var(--accent-light)"/>
+                        <rect x="-2" y="23" width="8" height="16" rx="2" fill="var(--text-1)"/>
+                        <rect x="44" y="24" width="6" height="14" rx="1" fill="var(--text-1)"/>
+                        <circle cx="25" cy="18" r="5" fill="var(--accent)"/>
+                    </g>
+                </svg>
+            </div>
+            <div class="splash-logo-wrapper">
+                <h1 class="splash-logo" data-text="EK">EK</h1>
+            </div>
+            <div class="splash-copyright" style="text-align: center;">
+                &copy; 2026 (Europe, Istanbul - All rights Reserved)<br>
+                <span style="font-size: 0.6rem; opacity: 0.7;">GPL Licensed exclusively for academic purposes.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PARTICLE BACKGROUND -->
+    <div id="tsparticles"></div>
 
     <!-- ═══════════════ GLASSMORPHIC HEADER ═══════════════ -->
     <header id="appHeader" class="glass-header">
@@ -88,6 +122,13 @@
                     <span class="status-text">AKTİF</span>
                 </div>
                 <img src="YTU_logo.png" alt="YTU Logo" style="height: 36px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menü">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-1)" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </button>
             </div>
         </div>
     </header>
@@ -97,9 +138,16 @@
         <div class="page-grid">
             <section class="map-section">
                 <div class="glass-panel map-panel">
-                    <div class="panel-title-bar">
-                        <h2>Jeodezik Görselleştirici</h2>
-                        <p>Nirengi hesabı için haritadan <strong>3 nokta</strong> seçin.</p>
+                    <div class="panel-title-bar" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                        <div>
+                            <h2>Jeodezik Görselleştirici</h2>
+                            <p style="margin-bottom: 1rem;">Nirengi hesabı için haritadan <strong>3 nokta</strong> seçin.</p>
+                        </div>
+                        <div style="text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-3); line-height: 1.5; margin-bottom: 1rem;">
+                            <span style="color: var(--accent);">CRS:</span> TUREF / TM30<br>
+                            <span style="color: var(--accent);">Datum:</span> ITRF96 (GRS80)<br>
+                            <span style="color: var(--accent);">Proj:</span> Transversal Mercator
+                        </div>
                     </div>
                     <div class="map-wrapper">
                         <div id="geoMap"></div>
@@ -354,12 +402,13 @@
     </main>
 
     <footer style="text-align: center; padding: 1.5rem; color: var(--text-3); font-size: 0.85rem; border-top: 1px solid rgba(255,255,255,0.05); margin-top: 2rem;">
-        Ertuğrul Kulak, Şişli, İstanbul<br>
+        Istanbul, Turkey<br>
         Version 1.2.0 | Last Renewed: April 2026<br>
         &copy; 2026 All Rights Reserved
     </footer>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.9.0/proj4.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>

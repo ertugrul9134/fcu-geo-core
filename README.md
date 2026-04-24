@@ -14,8 +14,8 @@ Yıldız Teknik Üniversitesi Ölçme Uygulamaları dersi kapsamında geliştiri
 Uygulamanın yayında olduğu özel alan adı (Surge) herhangi bir abonelik veya ücretli plan gerektirmeyen, bağımsız ve ücretsiz bir altyapı üzerine kurulmuştur. İlerleyen süreçte bu altyapıyı yönetmek, projeyi yayından kaldırmak veya güncellemek isterseniz aşağıdaki yönetici (login) bilgilerini kullanabilirsiniz:
 
 - **Platform:** [Surge.sh](https://surge.sh/)
-- **Yönetici E-Posta:** `ertugrul_fcu@1secmail.com`
-- **Şifre:** `Geocore2026!`
+- **Yönetici E-Posta:** `[REDACTED]`
+- **Şifre:** `[REDACTED]`
 
 *(Uygulamayı yerelde terminalden güncelledikten sonra tekrar aynı adrese deploy etmek isterseniz terminalde `npx surge ./ fundamentals-surveying.surge.sh` komutunu çalıştırmanız ve istendiğinde bu bilgileri girmeniz yeterlidir.)*
 
@@ -48,7 +48,7 @@ proj4 tanımı: +proj=tmerc +lat_0=0 +lon_0=30 +k=1 +x_0=500000 +y_0=0 +ellps=GR
 | Formüller | KaTeX |
 | Tema | Vanilla CSS (Glassmorphism) |
 | Veri | localStorage + ES Modules |
-| Deploy | GitHub Pages |
+| Deploy | Surge.sh |
 
 ## Dosya Yapısı
 

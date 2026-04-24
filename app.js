@@ -128,7 +128,14 @@ class App {
     bindNav() {
         const btns = document.querySelectorAll('.nav-btn');
         const indicator = document.querySelector('.nav-indicator');
-        const navBar = document.querySelector('.header-nav');
+        const navBar = document.getElementById('headerNav');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+        if (mobileMenuBtn && navBar) {
+            mobileMenuBtn.addEventListener('click', () => {
+                navBar.classList.toggle('nav-open');
+            });
+        }
 
         const moveIndicator = (el) => {
             if (!el || !indicator) return;
@@ -145,6 +152,11 @@ class App {
                 document.getElementById('page' + capitalize(btn.dataset.page)).classList.add('active');
                 
                 moveIndicator(btn);
+                
+                // Close mobile menu on click
+                if (navBar && navBar.classList.contains('nav-open')) {
+                    navBar.classList.remove('nav-open');
+                }
 
                 if (btn.dataset.page === 'map' && this.map) {
                     setTimeout(() => this.map.invalidateSize(), 100);
@@ -268,19 +280,21 @@ class App {
 
         ids.forEach(id => {
             const c = this.db.coords[id];
-            const ll = toLatLng(c.Y, c.X);
+            const rawHtml = '<div class="node-marker" data-id="' + escapeHTML(id) + '">' + escapeHTML(id) + '</div>';
+            const safeHtml = window.DOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
 
             const icon = L.divIcon({
                 className: '',
-                html: '<div class="node-marker" data-id="' + id + '">' + id + '</div>',
+                html: safeHtml,
                 iconSize: [28, 28],
                 iconAnchor: [14, 14]
             });
 
             const marker = L.marker(ll, { icon, riseOnHover: true }).addTo(this.map);
 
+            const tooltipHtml = '<b>Nokta ' + escapeHTML(id) + '</b><br>Y: ' + c.Y.toFixed(3) + '<br>X: ' + c.X.toFixed(3);
             marker.bindTooltip(
-                '<b>Nokta ' + id + '</b><br>Y: ' + c.Y.toFixed(3) + '<br>X: ' + c.X.toFixed(3),
+                window.DOMPurify ? DOMPurify.sanitize(tooltipHtml) : tooltipHtml,
                 { direction: 'top', offset: [0, -10], opacity: 0.9 }
             );
 
@@ -320,7 +334,7 @@ class App {
         if (this.selectedNodes.length === 0) {
             list.innerHTML = '<span class="empty-hint">Haritadan nokta seçin...</span>';
         } else {
-            list.innerHTML = this.selectedNodes.map(id => '<span class="chip">📍 ' + id + '</span>').join('');
+            list.innerHTML = this.selectedNodes.map(id => '<span class="chip">📍 ' + escapeHTML(id) + '</span>').join('');
         }
 
         document.getElementById('calculateBtn').disabled = this.selectedNodes.length !== 3;
@@ -639,7 +653,7 @@ class App {
             </div>`;
         }
 
-        document.getElementById('adjustmentContent').innerHTML = html;
+        document.getElementById('adjustmentContent').innerHTML = window.DOMPurify ? DOMPurify.sanitize(html) : html;
     }
 
     /* ——— Static Formula Rendering ——— */
@@ -676,5 +690,149 @@ function capitalize(s) {
 
 /* ═══ BOOT ═══ */
 document.addEventListener('DOMContentLoaded', () => {
+    // 2.0s After Effects Style Splash Screen Logic with Breathing Geoid
+    setTimeout(() => {
+        const splash = document.getElementById('splashScreen');
+        if (splash) {
+            splash.classList.add('hidden');
+            // DOM'dan temizle
+            setTimeout(() => splash.remove(), 600);
+        }
+    }, 2000); // Exactly 2 seconds as requested
+
+    // --- Breathing Geoid Particle Logic ---
+    const canvas = document.getElementById('geoidCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const numParticles = 2000; // Dense point cloud for premium look
+        let particles = [];
+        
+        // Distribute points evenly on a sphere using Fibonacci lattice
+        for (let i = 0; i < numParticles; i++) {
+            const phi = Math.acos(1 - 2 * (i + 0.5) / numParticles);
+            const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+            
+            particles.push({
+                phi: phi,
+                theta: theta,
+                rBase: 440 + (Math.random() * 24 - 12) // Micro-irregularities
+            });
+        }
+        
+        let startTime = Date.now();
+        
+        function drawGeoid() {
+            if (!document.getElementById('splashScreen')) return;
+            const time = (Date.now() - startTime) / 1000;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Breathing effect: scales rhythmically over a 2-second cycle
+            const breath = 1 + 0.06 * Math.sin(time * Math.PI);
+            
+            // Global rotation
+            const rotY = time * 0.4;
+            const rotZ = time * 0.15;
+            
+            for (let i = 0; i < numParticles; i++) {
+                const p = particles[i];
+                
+                // Geoid macro-deformations (creates continents/valleys)
+                const deformation = 8 * Math.sin(p.theta * 3 + time * 2) * Math.cos(p.phi * 4 - time);
+                const r = (p.rBase + deformation) * breath;
+                
+                // Spherical to Cartesian coordinates
+                let x = r * Math.sin(p.phi) * Math.cos(p.theta);
+                let y = r * Math.sin(p.phi) * Math.sin(p.theta);
+                let z = r * Math.cos(p.phi);
+                
+                // Apply Y-axis rotation
+                let x1 = x * Math.cos(rotY) - z * Math.sin(rotY);
+                let z1 = x * Math.sin(rotY) + z * Math.cos(rotY);
+                
+                // Apply Z-axis rotation
+                let x2 = x1 * Math.cos(rotZ) - y * Math.sin(rotZ);
+                let y2 = x1 * Math.sin(rotZ) + y * Math.cos(rotZ);
+                
+                // Simple 3D perspective projection
+                const fov = 400;
+                const scale = fov / (fov + z1);
+                const projX = canvas.width / 2 + x2 * scale;
+                const projY = canvas.height / 2 + y2 * scale;
+                
+                // Depth fading (far particles are darker/smaller)
+                const alpha = Math.min(1, Math.max(0.05, (120 - z1) / 240));
+                
+                if (scale > 0 && alpha > 0.05) {
+                    ctx.beginPath();
+                    ctx.arc(projX, projY, 0.9 * scale, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(212, 172, 130, ${alpha * 1.5})`; // --accent-light
+                    ctx.fill();
+                }
+            }
+            requestAnimationFrame(drawGeoid);
+        }
+        drawGeoid();
+    }
+    // --- End of Geoid Logic ---
+
     window.FCU = new App();
+    
+    // Initialize tsParticles with "breathing" globe-like interactive network
+    if (window.tsParticles) {
+        tsParticles.load("tsparticles", {
+            fpsLimit: 60,
+            particles: {
+                number: { value: 160, density: { enable: true, value_area: 800 } },
+                color: { value: ["#C4956A", "#D4AC82", "#ffffff"] },
+                shape: { type: "circle" },
+                opacity: { 
+                    value: 0.6, 
+                    random: true,
+                    animation: { enable: true, speed: 1, minimumValue: 0.1, sync: false }
+                },
+                size: {
+                    value: 3,
+                    random: true,
+                    animation: { enable: true, speed: 2, minimumValue: 0.5, sync: false }
+                },
+                links: {
+                    enable: true,
+                    distance: 120,
+                    color: "#C4956A",
+                    opacity: 0.4,
+                    width: 1
+                },
+                move: {
+                    enable: true,
+                    speed: 0.4,
+                    direction: "none",
+                    random: true,
+                    straight: false,
+                    outModes: { default: "bounce" }
+                }
+            },
+            interactivity: {
+                detectsOn: "window",
+                events: {
+                    onHover: { enable: true, mode: "repulse" },
+                    onClick: { enable: true, mode: "push" },
+                    resize: true
+                },
+                modes: {
+                    repulse: { 
+                        distance: 240, 
+                        duration: 0.3,     // Hızlıca eski yörüngesine/konumuna geri döner
+                        factor: 3,         // İtme kuvveti şiddeti
+                        speed: 3,          // İtme hızı
+                        easing: "ease-out-back" // Elastik/plastik yaylanma efekti
+                    },
+                    push: { particles_nb: 3 }
+                }
+            },
+            retina_detect: true,
+            background: {
+                color: "transparent"
+            }
+        });
+    }
 });
