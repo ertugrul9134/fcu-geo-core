@@ -1,0 +1,7 @@
+node_modules/
+.git/
+videos/
+check_errors.js
+simulate_physics.js
+*.log
+package-lock.json
