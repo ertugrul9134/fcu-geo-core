@@ -474,7 +474,18 @@
                     <label style="font-size:0.7rem;">Poligon Güzergahı (nokta no, virgülle)</label>
                     <input type="text" id="u4TraversePath" value="43,44,46,47,45" style="width:100%;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);font-size:0.8rem;margin-bottom:0.5rem;">
                     <button id="u4LoadBtn" class="btn btn-primary" style="width:100%;margin-bottom:0.5rem;">Örnek Veri Yükle ve Hesapla</button>
-                    <div id="u4EdgeTable" style="font-size:0.7rem;max-height:200px;overflow-y:auto;"></div>
+                    
+                    <details style="margin-top:0.75rem;">
+                        <summary style="cursor:pointer;color:var(--accent);font-size:0.8rem;">Manuel Olcu Girisi (Gerçek Saha Verisi)</summary>
+                        <div style="margin-top:0.5rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;">
+                            <label style="font-size:0.7rem;">Kenar Olculeri (JSON format: [{from,to,slopeDist,zenithAngle},...])</label>
+                            <textarea id="u4ManualEdges" style="width:100%;height:80px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"from":43,"to":44,"slopeDist":19.467,"zenithAngle":100.445}, ...]'></textarea>
+                            <label style="font-size:0.7rem;margin-top:0.4rem;">Kirilma Acilari (JSON: gon cinsinden)</label>
+                            <textarea id="u4ManualStations" style="width:100%;height:60px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"stationId":44,"breakAngleObserved":138.5}, ...]'></textarea>
+                            <button id="u4ManualBtn" class="btn btn-outline" style="margin-top:0.4rem;font-size:0.75rem;">Manuel Verilerle Hesapla</button>
+                        </div>
+                    </details>
+<div id="u4EdgeTable" style="font-size:0.7rem;max-height:200px;overflow-y:auto;"></div>
                 </div>
             </section>
             <section class="map-section" style="flex:1;display:flex;flex-direction:column;gap:0.5rem;">
@@ -516,7 +527,16 @@
                     </div>
                     <button id="u5LoadBtn" class="btn btn-primary" style="width:100%;margin-bottom:0.5rem;">Gerçek Verileri Göster</button>
                     <div id="u5GeoTable" style="font-size:0.7rem;max-height:250px;overflow-y:auto;"></div>
-                    <div id="u5TrigTable" style="font-size:0.7rem;margin-top:0.5rem;"></div>
+                    
+                    <details style="margin-top:0.75rem;">
+                        <summary style="cursor:pointer;color:var(--accent);font-size:0.8rem;">Trigonometrik Nivelman Girisi</summary>
+                        <div style="margin-top:0.5rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;">
+                            <label style="font-size:0.7rem;">Total Station Olculeri (JSON: [{from,to,slopeDist,zenithGon,i,t},...])</label>
+                            <textarea id="u5ManualTrig" style="width:100%;height:80px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"from":"N38","to":"N40","slopeDist":35.2,"zenithGon":99.1,"i":1.55,"t":1.60}, ...]'></textarea>
+                            <button id="u5TrigBtn" class="btn btn-outline" style="margin-top:0.4rem;font-size:0.75rem;">Trigonometrik Hesapla</button>
+                        </div>
+                    </details>
+<div id="u5TrigTable" style="font-size:0.7rem;margin-top:0.5rem;"></div>
                     <div id="u5Compare" style="font-size:0.7rem;margin-top:0.5rem;"></div>
                 </div>
             </section>

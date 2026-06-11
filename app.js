@@ -1670,6 +1670,26 @@ class U5Controller {
         if (!this.map) this.initMap();
         setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadReal(); self.loaded = true; }, 300);
         const el = document.getElementById('u5LoadBtn'); if (el) el.onclick = () => self.loadReal();
+        const trigBtn = document.getElementById('u5TrigBtn');
+        if (trigBtn) trigBtn.onclick = () => {
+            try {
+                const trigStr = document.getElementById('u5ManualTrig')?.value || '[]';
+                const trigData = JSON.parse(trigStr);
+                let html = '<div class="panel-title-bar"><strong>Trigonometrik Nivelman</strong></div>';
+                html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S</th><th>Z</th><th>&Delta;h</th></tr></thead><tbody>';
+                let sumDh = 0; const k = 0.13, R = 6371000;
+                for (const t of trigData) {
+                    const Zrad = t.zenithGon * Math.PI / 200;
+                    const sH = t.slopeDist * Math.sin(Zrad);
+                    const dh = t.slopeDist * Math.cos(Zrad) + (t.i||1.55) - (t.t||1.60) + ((1-k)/(2*R))*sH*sH;
+                    sumDh += dh;
+                    html += '<tr><td>'+(t.from||'?')+'&rarr;'+(t.to||'?')+'</td><td>'+t.slopeDist.toFixed(3)+'</td><td>'+t.zenithGon.toFixed(4)+'</td><td style="color:var(--accent)">'+dh.toFixed(4)+'</td></tr>';
+                }
+                html += '<tr style="font-weight:bold;border-top:2px solid var(--border)"><td colspan="3">Toplam</td><td style="color:var(--accent)">'+sumDh.toFixed(4)+'</td></tr></tbody></table>';
+                document.getElementById('u5TrigTable').innerHTML = html;
+            } catch(e) { document.getElementById('u5TrigTable').innerHTML = '<p style="color:var(--danger)">JSON hata: '+e.message+'</p>'; }
+        };
+
     }
     initMap() {
         const el = document.getElementById('u5Map'); if (!el || this.map) return;
