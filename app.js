@@ -17,6 +17,7 @@ import { synthU4, studentModifiers } from './synth_data.js';
 import { computeU4, compareCoordinates as compareCoords4 } from './u4_engine.js';
 import { tm30ToWGS84Approx } from './u6_engine.js';
 import { levelingData as U5_REAL, rsBenchmarks } from './data_u5_real.js';
+import { trigonometricDH, compareGeoVsTrig } from './u5_engine.js';
 import { rtkMeasurements as U6_REAL, N_GEOID } from './data_u6_real.js';
 /* ═══════════════════════════════════════════════
    GEODETIC ENGINE — re-exported from geo_math.js
@@ -128,7 +129,51 @@ const TaskRegistry = [
         subpages: [
             { id: 'u1Intro', label: 'İş Güvenliği', pageElementId: 'pageU1Intro' },
             { id: 'u1Sketch', label: 'İstikşaf', pageElementId: 'pageU1Sketch' }
-        ]
+        ],
+        onSubpageActivate(subId, app) {
+            if (subId === 'u1Sketch' && app.db) {
+                setTimeout(() => {
+                    const el = document.getElementById('u1Map');
+                    if (!el || el._mapInit) return;
+                    el._mapInit = true;
+                    const map = L.map('u1Map', { zoomControl: true }).setView([41.0241, 28.8868], 16);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(map);
+                    // Add network points
+                    const chain = [];
+                    const coords = app.db.coords;
+                    const pointIds = [38, 40, 41, 43, 45, 49];
+                    // AN14 is special
+                    const an14Coord = coords[14];
+                    const seenIds = new Set();
+                    for (const pid of pointIds) {
+                        const pt = coords[pid];
+                        if (pt && !seenIds.has(pid)) {
+                            seenIds.add(pid);
+                            const ll = toLatLng(pt.Y, pt.X);
+                            chain.push({ id: 'N' + pid, lat: ll[0], lon: ll[1], h: pt.h, isRS: (pid === 38 || pid === 49) });
+                        }
+                    }
+                    if (an14Coord) {
+                        const ll = toLatLng(an14Coord.Y, an14Coord.X);
+                        chain.push({ id: 'AN14', lat: ll[0], lon: ll[1], h: an14Coord.h, isRS: false });
+                    }
+                    // Draw markers and polyline
+                    const latlngs = [];
+                    for (const c of chain) {
+                        latlngs.push([c.lat, c.lon]);
+                        L.circleMarker([c.lat, c.lon], {
+                            radius: c.isRS ? 8 : 6,
+                            fillColor: c.isRS ? '#2196f3' : '#4caf50',
+                            color: '#fff', weight: 2, fillOpacity: 0.9
+                        }).bindPopup('<b>' + c.id + '</b>' + (c.h ? '<br>h: ' + c.h.toFixed(3) + ' m' : '') + (c.isRS ? '<br><em>RS Sabit Nokta</em>' : '')).addTo(map);
+                    }
+                    if (latlngs.length) {
+                        L.polyline(latlngs, { color: '#4caf50', weight: 3, dashArray: '6,6' }).addTo(map);
+                        map.fitBounds(latlngs, { padding: [40, 40] });
+                    }
+                }, 400);
+            }
+        }
     },
     {
         id: 'u2', label: 'Uygulama-2',
@@ -1647,14 +1692,14 @@ class U4Controller {
             const c = result.closure;
             html += '<p><strong>Kapanma Hatalari:</strong> f<sub>x</sub>=' + c.fx.toFixed(4) + ' m, f<sub>y</sub>=' + c.fy.toFixed(4) + ' m, f<sub>s</sub>=' + c.fs.toFixed(4) + ' m</p>';
             html += '<p><strong>Bagil Hata:</strong> 1/' + Math.round(1/c.relErr) + ' &mdash; ';
-            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas olcum (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Dusuk hassasiyet &mdash; olcu tekrari onerilir</span>');
+            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas olcum (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Dusuk hassasiyet, olcu tekrari onerilir</span>');
             html += '</p>';
             const comp = compareCoords4(coords, result.adjusted, path);
             const maxDY = Math.max(...comp.map(r => Math.abs(r.dY)));
             const maxDX = Math.max(...comp.map(r => Math.abs(r.dX)));
             html += '<p><strong>Maksimum Koordinat Sapmasi:</strong> dY<sub>max</sub>=' + (maxDY*1000).toFixed(1) + ' mm, dX<sub>max</sub>=' + (maxDX*1000).toFixed(1) + ' mm</p>';
         } catch(e) { html += '<p style="color:var(--danger);">Dengeleme hesaplanamadi.</p>'; }
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Bowditch (pusula) kurali ile dengeleme yapilmistir. Hatalar mesafeyle orantili dagitilmistir.</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Bowditch (pusula kurali) yontemiyle dengeleme yapilmistir. Kapanma hatalari kenar uzunluklariyla orantili olarak dagitilmistir.</p>';
         html += '</div>';
         el.innerHTML = html;
     }
@@ -1745,8 +1790,70 @@ class U5Controller {
         html += '&Sigma; mesafe: <b>' + totalDist.toFixed(0) + '</b> m | Tolerans: <b>&plusmn;' + (tolerance*1000).toFixed(1) + '</b> mm | Kapanma: <b style="color:' + (Math.abs(closure)<tolerance?'#4caf50':'var(--danger)') + ';">' + (closure*1000).toFixed(1) + ' mm</b> ';
         html += (Math.abs(closure) < tolerance ? '<span style="color:#4caf50;">&check; KABUL</span>' : '<span style="color:var(--danger);">&cross; RED</span>') + '</div>';
         document.getElementById('u5GeoTable').innerHTML = html;
-        document.getElementById('u5TrigTable').innerHTML = '<div style="margin-top:0.75rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;"><strong style="color:var(--accent);">Trigonometrik Nivelman</strong><br><span style="color:var(--text-3);font-size:0.8rem;">Total station verisi girildiginde aktif olacak.</span></div>';
-        document.getElementById('u5Compare').innerHTML = '<div style="margin-top:0.5rem;color:var(--text-3);font-size:0.8rem;"><em>Geo vs Trig karsilastirmasi — trig verisiyle aktif.</em></div>';
+        // --- Auto-compute trigonometric leveling from geometric data ---
+        this.renderTrigTable(data, XX);
+        this.renderGeoVsTrigCompare(data, XX);
+    }
+    renderTrigTable(data, XX) {
+        const el = document.getElementById('u5TrigTable'); if (!el) return;
+        const i = 1.55, t = 1.60, k = 0.13, R = 6371000, GON_TO_RAD = Math.PI / 200;
+        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Trigonometrik Nivelman</strong> &mdash; <span style="font-size:0.78rem;">Sentetik Z/S (Geo &Delta;h&apos;dan turetilmis, alet=1.55 m, hedef=1.60 m)</span></div>';
+        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S (m)</th><th>Z (gon)</th><th>&Delta;h_trig (m)</th><th>&Delta;h_geo (m)</th><th>Fark (mm)</th></tr></thead><tbody>';
+        let sumTrig = 0, sumGeo = 0;
+        for (const leg of data) {
+            const dh_geo = +(leg.BS - leg.FS).toFixed(4);
+            const dist = leg.bsDist + leg.fsDist;
+            // Derive zenith from known dh_geo:
+            //   dh = S*cos(Z) + i - t + (1-k)*S_horiz^2/(2R)
+            //   For small dh, solve iteratively: cos(Z) ≈ (dh - i + t) / S
+            //   Z = arccos(cosZ) radians, then to gon
+            const c = ((1 - k) / (2 * R)) * dist * dist; // curvature approx with S ≈ horizontal
+            let cosZ = (dh_geo - i + t - c) / dist;
+            cosZ = Math.max(-1, Math.min(1, cosZ)); // clamp
+            const Zrad = Math.acos(cosZ);
+            const zenithGon = Zrad / GON_TO_RAD;
+            const result = trigonometricDH(dist, zenithGon, i, t, k, R);
+            const dh_trig = +result.dh.toFixed(4);
+            sumTrig += dh_trig; sumGeo += dh_geo;
+            const diff_mm = +((dh_trig - dh_geo) * 1000).toFixed(1);
+            html += '<tr><td>' + leg.from + '&rarr;' + leg.to + '</td><td>' + dist.toFixed(2) + '</td><td>' + zenithGon.toFixed(4) + '</td><td style="color:var(--accent);">' + dh_trig.toFixed(4) + '</td><td>' + dh_geo.toFixed(4) + '</td><td style="color:' + (Math.abs(diff_mm) < 10 ? '#4caf50' : 'var(--danger)') + ';">' + diff_mm.toFixed(1) + '</td></tr>';
+        }
+        html += '<tr style="font-weight:bold;border-top:2px solid var(--border);background:var(--bg-3);"><td>Toplam</td><td></td><td></td><td style="color:var(--accent);">' + sumTrig.toFixed(4) + '</td><td>' + sumGeo.toFixed(4) + '</td><td style="color:var(--accent);">' + ((sumTrig - sumGeo) * 1000).toFixed(1) + '</td></tr>';
+        html += '</tbody></table>';
+        el.innerHTML = html;
+    }
+    renderGeoVsTrigCompare(data, XX) {
+        const el = document.getElementById('u5Compare'); if (!el) return;
+        const i = 1.55, t = 1.60, k = 0.13, R = 6371000, GON_TO_RAD = Math.PI / 200;
+        const geoLegs = data.map(leg => ({
+            from: leg.from, to: leg.to,
+            dh_geo: +(leg.BS - leg.FS).toFixed(4),
+            dh_true: +(leg.BS - leg.FS).toFixed(4)
+        }));
+        const trigLegs = data.map(leg => {
+            const dh_geo = +(leg.BS - leg.FS).toFixed(4);
+            const dist = leg.bsDist + leg.fsDist;
+            const c = ((1 - k) / (2 * R)) * dist * dist;
+            let cosZ = (dh_geo - i + t - c) / dist;
+            cosZ = Math.max(-1, Math.min(1, cosZ));
+            const Zrad = Math.acos(cosZ);
+            const zenithGon = Zrad / GON_TO_RAD;
+            const result = trigonometricDH(dist, zenithGon, i, t, k, R);
+            return {
+                from: leg.from, to: leg.to,
+                dh_trig: +result.dh.toFixed(4),
+                dh_true: dh_geo
+            };
+        });
+        const comparison = compareGeoVsTrig(geoLegs, trigLegs);
+        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Geometrik vs Trigonometrik Karsilastirmasi</strong></div>';
+        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>&Delta;h_geo (m)</th><th>&Delta;h_trig (m)</th><th>d_geo (mm)</th><th>d_trig (mm)</th><th>Geo vs Trig (mm)</th></tr></thead><tbody>';
+        for (const row of comparison) {
+            html += '<tr><td>' + row.from + '&rarr;' + row.to + '</td><td>' + row.dh_geo.toFixed(4) + '</td><td>' + row.dh_trig.toFixed(4) + '</td><td>' + (row.d_geo * 1000).toFixed(1) + '</td><td>' + (row.d_trig * 1000).toFixed(1) + '</td><td style="color:' + (Math.abs(row.geo_vs_trig) < 0.01 ? '#4caf50' : 'var(--danger)') + ';">' + (row.geo_vs_trig * 1000).toFixed(1) + '</td></tr>';
+        }
+        html += '</tbody></table>';
+        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-top:0.4rem;">* Trigonometrik nivelman degerleri geometrik &Delta;h degerlerinden turetilen sentetik Z/S ile hesaplanmistir. Gercek saha total station verisi girildiginde dogrudan karsilastirma yapilabilir.</p>';
+        el.innerHTML = html;
     }
     renderReport(data, XX, chain) {
         const el = document.getElementById('u5ReportContent'); if (!el) return;
@@ -1771,10 +1878,10 @@ class U5Controller {
         if (Math.abs(closure) < tolerance) {
             html += '<span style="color:#4caf50;">Kapanma tolerans dahilinde. Nivelman olcumleri basarili.</span>';
         } else {
-            html += '<span style="color:var(--danger);">Kapanma toleransi asiyor (' + (Math.abs(closure)*1000).toFixed(1) + ' mm > ' + (tolerance*1000).toFixed(1) + ' mm). Olasi nedenler: mira okuma hatalari, alet kurulum hatalari, RS noktalarinda oturma.</span>';
+            html += '<span style="color:var(--danger);">Kapanma tolerans disinda (' + (Math.abs(closure)*1000).toFixed(1) + ' mm > ' + (tolerance*1000).toFixed(1) + ' mm). Muhtemel sebepler: mira okuma hatalari, alet kurulum hatalari, RS noktalarinda oturma.</span>';
         }
         html += '</p>';
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Nivelman hesaplari, geometrik nivelman yontemiyle (BS-FS) yapilmistir. Her ayak icin 2 bagimsiz nivo kurulumu gerceklestirilmistir.</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Hesaplamalar geometrik nivelman yontemiyle (BS-FS) yapilmistir. Her ayakta 2 ayri nivo kurulumu ile olcum tekrarlanmistir.</p>';
         html += '</div>';
         el.innerHTML = html;
     }
@@ -1855,9 +1962,9 @@ class U6Controller {
         if (P4 && P41) {
             const dx = P4.X - P41.X, dy = P4.Y - P41.Y, ds = Math.sqrt(dx*dx + dy*dy);
             html += '<p><strong>Tekrar Olcusu (P.4 &harr; P.41):</strong> Konum farki ' + (ds*1000).toFixed(1) + ' mm &mdash; ';
-            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK olcum kalitesi cok iyi (&lt;2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK olcum kalitesi iyi (&lt;5 cm)</span>' : '<span style="color:var(--danger);">Tekrar olcusunde sapma var</span>') + '</p>';
+            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK tekrarliligi cok iyi (&lt;2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK tekrarliligi kabul edilebilir (&lt;5 cm)</span>' : '<span style="color:var(--danger);">Tekrar olcusunde anlamli fark var</span>') + '</p>';
         }
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* RTK GPS olcumleri, YLDZ sabit istasyonundan alinan duzeltmelerle gerceklestirilmistir. Parsel kose noktalari ve detay noktalari kutupsal alim yontemiyle ve RTK GPS yontemiyle olculmustur.</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* RTK GPS olcumlerinde YLDZ sabit istasyonundan gelen duzeltmeler kullanilmistir. Parsel koseleri ve detay noktalari hem kutupsal alim hem de RTK GPS ile ayri ayri olculmustur.</p>';
         html += '</div>';
         el.innerHTML = html;
     }

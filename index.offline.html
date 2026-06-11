@@ -1,5 +1,10 @@
 <!DOCTYPE html>
 <html lang="tr">
+<!-- 
+  OFFLINE MODE: Serve with "python -m http.server 8000" from survey_app/
+  Map tiles require internet; all calculations work without network.
+  Fonts fall back to system sans-serif/monospace when offline.
+-->
 
 <head>
     <meta charset="UTF-8">
@@ -574,7 +579,7 @@
     <script src="cdn/proj4.js"></script>
     <script src="cdn/katex.min.js"></script>
     <script src="cdn/auto-render.min.js"></script>
-    <script src="app.bundle.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 
 </html>
