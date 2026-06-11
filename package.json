@@ -1,7 +1,7 @@
 {
   "name": "survey_app",
   "version": "1.0.0",
-  "description": "Yıldız Teknik Üniversitesi Ölçme Uygulamaları dersi kapsamında geliştirilen, tarayıcı tabanlı nirengi hesaplama ve görselleştirme aracı.",
+  "description": "Y\u0131ld\u0131z Teknik \u00dcniversitesi \u00d6l\u00e7me Uygulamalar\u0131 dersi kapsam\u0131nda geli\u015ftirilen, taray\u0131c\u0131 tabanl\u0131 nirengi hesaplama ve g\u00f6rselle\u015ftirme arac\u0131.",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {},
   "devDependencies": {
     "@playwright/test": "^1.47.0"

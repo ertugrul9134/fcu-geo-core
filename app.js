@@ -1,41 +1,32 @@
 import { coordinates as DEFAULT_COORDS, measurements as DEFAULT_MEAS } from './data.js';
+import { stations_u3, defaultConstants_u3, emptyObservation } from './data_u3.js';
+import {
+    reduceSilsile, planarDistance, planarAzimuth, compareTarget,
+    fmtGon, fmtMeter, gonToDms, normalizeGon as normGonU3
+} from './u3_engine.js';
+import { fetchMosques } from './u3_overpass.js';
+import { ThemedSelect } from './components/ThemedSelect.js';
+import {
+    firstFundamental as gm_firstFundamental,
+    secondFundamental as gm_secondFundamental,
+    normalizeGon as gm_normalizeGon
+} from './geo_math.js';
+import { CalcHubController } from './calculators.js';
 
+import { synthU4, studentModifiers } from './synth_data.js';
+import { computeU4, compareCoordinates as compareCoords4 } from './u4_engine.js';
+import { tm30ToWGS84Approx } from './u6_engine.js';
+import { levelingData as U5_REAL, rsBenchmarks } from './data_u5_real.js';
+import { rtkMeasurements as U6_REAL, N_GEOID } from './data_u6_real.js';
 /* ═══════════════════════════════════════════════
-   GEODETIC ENGINE — Mathematically Verified Core
+   GEODETIC ENGINE — re-exported from geo_math.js
+   (kept as locals so existing app.js code keeps working)
    ═══════════════════════════════════════════════ */
 const GON_TO_RAD = Math.PI / 200.0;
 const RAD_TO_GON = 200.0 / Math.PI;
-
-function normalizeGon(a) {
-    a = a % 400;
-    return a < 0 ? a + 400 : a;
-}
-
-function firstFundamental(ya, xa, azimuth, distance) {
-    const r = azimuth * GON_TO_RAD;
-    const dy = distance * Math.sin(r);
-    const dx = distance * Math.cos(r);
-    return { y: ya + dy, x: xa + dx, dy, dx };
-}
-
-function secondFundamental(ya, xa, yb, xb) {
-    const dy = yb - ya;
-    const dx = xb - xa;
-    const dist = Math.sqrt(dy * dy + dx * dx);
-    if (dist < 1e-12) return { azimuth: 0, distance: 0, dy, dx };
-
-    const base = dx !== 0
-        ? Math.abs(Math.atan(Math.abs(dy / dx))) * RAD_TO_GON
-        : 100.0;
-
-    let az;
-    if      (dy >= 0 && dx >= 0) az = base;
-    else if (dy >= 0 && dx <  0) az = 200 - base;
-    else if (dy <  0 && dx <  0) az = 200 + base;
-    else                         az = 400 - base;
-
-    return { azimuth: normalizeGon(az), distance: dist, dy, dx };
-}
+const normalizeGon       = gm_normalizeGon;
+const firstFundamental   = gm_firstFundamental;
+const secondFundamental  = gm_secondFundamental;
 
 /* ═══════════════════════════════════════════════
    DATABASE — localStorage with Default Fallback
@@ -108,6 +99,117 @@ function mathBlock(texStr) {
 }
 
 /* ═══════════════════════════════════════════════
+   TASK REGISTRY — Single source of truth for nav.
+   Adding a new Uygulama: append an entry; if needed
+   declare a controller and add an onActivate hook.
+   ═══════════════════════════════════════════════ */
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgIcon(paths) {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', '16'); svg.setAttribute('height', '16');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+    paths.forEach(d => {
+        const el = document.createElementNS(SVG_NS, d.tag || 'path');
+        Object.entries(d.attrs).forEach(([k, v]) => el.setAttribute(k, v));
+        svg.appendChild(el);
+    });
+    return svg;
+}
+
+const TaskRegistry = [
+    {
+        id: 'u1', label: 'Uygulama-1',
+        icon: () => svgIcon([
+            { attrs: { d: 'M12 2L2 7l10 5 10-5-10-5z' } },
+            { attrs: { d: 'M2 17l10 5 10-5' } },
+            { attrs: { d: 'M2 12l10 5 10-5' } }
+        ]),
+        subpages: [
+            { id: 'u1Intro', label: 'İş Güvenliği', pageElementId: 'pageU1Intro' },
+            { id: 'u1Sketch', label: 'İstikşaf', pageElementId: 'pageU1Sketch' }
+        ]
+    },
+    {
+        id: 'u2', label: 'Uygulama-2',
+        icon: () => svgIcon([
+            { tag: 'polygon', attrs: { points: '1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6' } },
+            { tag: 'line', attrs: { x1: '8', y1: '2', x2: '8', y2: '18' } },
+            { tag: 'line', attrs: { x1: '16', y1: '6', x2: '16', y2: '22' } }
+        ]),
+        subpages: [
+            { id: 'map',        label: 'Harita',     pageElementId: 'pageMap' },
+            { id: 'db',         label: 'Veritabanı', pageElementId: 'pageDb' },
+            { id: 'formulas',   label: 'Formüller',  pageElementId: 'pageFormulas' },
+            { id: 'report',     label: 'Rapor',      pageElementId: 'pageReport' },
+            { id: 'adjustment', label: 'Dengeleme',  pageElementId: 'pageAdjustment' }
+        ],
+        onSubpageActivate: (subId, app) => {
+            if (subId === 'map' && app.map) setTimeout(() => app.map.invalidateSize(), 100);
+        }
+    },
+    {
+        id: 'u3', label: 'Uygulama-3',
+        icon: () => svgIcon([
+            { attrs: { d: 'M12 2v20' } },
+            { attrs: { d: 'M2 12h20' } },
+            { tag: 'circle', attrs: { cx: '12', cy: '12', r: '9' } },
+            { attrs: { d: 'M12 12 L18 6' } }
+        ]),
+        subpages: [
+            { id: 'u3', label: 'Silsile Düşey Açı', pageElementId: 'pageU3' }
+        ],
+        onSubpageActivate: (subId, app) => {
+            if (app.u3) setTimeout(() => app.u3.activate(), 100);
+        }
+    },
+    {
+        id: 'u4', label: 'Uygulama-4',
+        icon: () => svgIcon([
+            { tag: 'polygon', attrs: { points: '12 2 4 8 4 16 12 22 20 16 20 8 12 2' } },
+            { attrs: { d: 'M12 2v20' } }
+        ]),
+        subpages: [
+            { id: 'u4Main', label: 'Poligon Hesabı', pageElementId: 'pageU4Stub' },
+            { id: 'u4Report', label: 'Rapor', pageElementId: 'pageU4Report' }
+        ]
+    ,
+        onSubpageActivate: (subId, app) => { if (app.u4) setTimeout(() => app.u4.activate(), 100); }},
+    {
+        id: 'u5', label: 'Uygulama-5',
+        icon: () => svgIcon([
+            { tag: 'line', attrs: { x1: '3', y1: '12', x2: '21', y2: '12' } },
+            { tag: 'line', attrs: { x1: '7', y1: '6',  x2: '17', y2: '6' } },
+            { tag: 'line', attrs: { x1: '5', y1: '18', x2: '19', y2: '18' } }
+        ]),
+        subpages: [{ id: 'u5Stub', label: 'Nivelman', pageElementId: 'pageU5Stub' }]
+    ,
+        onSubpageActivate: (subId, app) => { if (app.u5) setTimeout(() => app.u5.activate(), 100); }},
+    {
+        id: 'u6', label: 'Uygulama-6',
+        icon: () => svgIcon([
+            { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+            { attrs: { d: 'M2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0 -20' } }
+        ]),
+        subpages: [{ id: 'u6Stub', label: '3B Konumlama', pageElementId: 'pageU6Stub' }]
+    ,
+        onSubpageActivate: (subId, app) => { if (app.u6) setTimeout(() => app.u6.activate(), 100); }},
+    {
+        id: 'calc', label: 'Hesaplayıcılar',
+        icon: () => svgIcon([
+            { tag: 'rect', attrs: { x: '4', y: '2', width: '16', height: '20', rx: '2' } },
+            { tag: 'line', attrs: { x1: '8', y1: '6', x2: '16', y2: '6' } },
+            { tag: 'line', attrs: { x1: '8', y1: '11', x2: '10', y2: '11' } },
+            { tag: 'line', attrs: { x1: '12', y1: '11', x2: '14', y2: '11' } },
+            { tag: 'line', attrs: { x1: '8', y1: '15', x2: '10', y2: '15' } },
+            { tag: 'line', attrs: { x1: '12', y1: '15', x2: '14', y2: '15' } }
+        ]),
+        subpages: [{ id: 'calcHub', label: 'Tüm Hesaplayıcılar', pageElementId: 'pageCalcHub' }],
+        onSubpageActivate: (subId, app) => { if (app.calcHub) setTimeout(() => app.calcHub.activate(), 100); }
+    }
+];
+
+/* ═══════════════════════════════════════════════
    APPLICATION CONTROLLER
    ═══════════════════════════════════════════════ */
 class App {
@@ -122,66 +224,157 @@ class App {
         this.bindControls();
         this.initMap();
         this.renderStaticFormulas();
+
+        // Uygulama-3 controller (lazily initialized; map needs visible container)
+        this.u3 = new U3Controller();
+        this.u3.bindStaticControls();
+
+        // Calculator Hub controller (lazy mount on tab activate)
+        this.calcHub = new CalcHubController();
+
+        this.u4 = new U4Controller(this);
+        this.u5 = new U5Controller(this);
+        this.u6 = new U6Controller(this);    }
+
+    /* ——— Navigation (registry-driven, two-tier) ——— */
+    bindNav() {
+        this.activeOuter = 'u2';        // Default outer tab
+        this.activeSubpage = 'map';     // Default subpage of u2
+        this.outerNav = document.getElementById('outerNav');
+        this.outerIndicator = document.getElementById('outerIndicator');
+        this.innerNav = document.getElementById('innerNav');
+        this.innerNavBar = document.getElementById('innerNavBar');
+        this.innerIndicator = document.getElementById('innerIndicator');
+
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        if (mobileMenuBtn && this.outerNav) {
+            mobileMenuBtn.addEventListener('click', () => {
+                this.outerNav.classList.toggle('nav-open');
+                if (this.innerNav) this.innerNav.classList.toggle('nav-open');
+            });
+        }
+
+        this.buildOuterNav();
+        // İlk seçim
+        this.selectOuter(this.activeOuter);
     }
 
-    /* ——— Navigation ——— */
-    bindNav() {
-        const btns = document.querySelectorAll('.nav-btn');
-        const indicator = document.querySelector('.nav-indicator');
-        const navBar = document.getElementById('headerNav');
-        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    moveIndicator(btnEl, indicatorEl) {
+        if (!btnEl || !indicatorEl) return;
+        indicatorEl.style.width = `${btnEl.offsetWidth}px`;
+        indicatorEl.style.transform = `translateX(${btnEl.offsetLeft}px)`;
+        indicatorEl.style.opacity = '1';
+    }
 
-        if (mobileMenuBtn && navBar) {
-            mobileMenuBtn.addEventListener('click', () => {
-                navBar.classList.toggle('nav-open');
-            });
-        }
+    buildOuterNav() {
+        if (!this.outerNav) return;
+        // Indicator'ı koru, içeriği yeniden inşa et
+        Array.from(this.outerNav.querySelectorAll('.nav-btn')).forEach(b => b.remove());
+        TaskRegistry.forEach((task, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nav-btn';
+            btn.dataset.outer = task.id;
+            btn.id = `navOuter_${task.id}`;
+            const iconEl = task.icon ? task.icon() : null;
+            if (iconEl) btn.appendChild(iconEl);
+            const span = document.createElement('span');
+            span.textContent = task.label;
+            btn.appendChild(span);
 
-        const moveIndicator = (el) => {
-            if (!el || !indicator) return;
-            indicator.style.width = `${el.offsetWidth}px`;
-            indicator.style.transform = `translateX(${el.offsetLeft}px)`;
-            indicator.style.opacity = '1';
-        };
-
-        btns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                btns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-                document.getElementById('page' + capitalize(btn.dataset.page)).classList.add('active');
-                
-                moveIndicator(btn);
-                
-                // Close mobile menu on click
-                if (navBar && navBar.classList.contains('nav-open')) {
-                    navBar.classList.remove('nav-open');
-                }
-
-                if (btn.dataset.page === 'map' && this.map) {
-                    setTimeout(() => this.map.invalidateSize(), 100);
-                }
-            });
-
-            btn.addEventListener('mouseenter', () => moveIndicator(btn));
+            btn.addEventListener('click', () => this.selectOuter(task.id));
+            btn.addEventListener('mouseenter', () => this.moveIndicator(btn, this.outerIndicator));
+            // Insert before indicator element
+            this.outerNav.insertBefore(btn, this.outerIndicator);
         });
 
-        if (navBar) {
-            navBar.addEventListener('mouseleave', () => {
-                const activeBtn = document.querySelector('.nav-btn.active');
-                if (activeBtn) {
-                    moveIndicator(activeBtn);
-                } else if (indicator) {
-                    indicator.style.opacity = '0';
-                }
+        if (this.outerNav) {
+            this.outerNav.addEventListener('mouseleave', () => {
+                const active = this.outerNav.querySelector('.nav-btn.active');
+                if (active) this.moveIndicator(active, this.outerIndicator);
             });
         }
+    }
 
-        // Initialize indicator position
-        setTimeout(() => {
-            const activeBtn = document.querySelector('.nav-btn.active');
-            if (activeBtn) moveIndicator(activeBtn);
-        }, 100);
+    buildInnerNav(outerId) {
+        if (!this.innerNav) return;
+        const task = TaskRegistry.find(t => t.id === outerId);
+        if (!task) return;
+
+        // Indicator dışındaki butonları temizle
+        Array.from(this.innerNav.querySelectorAll('.nav-btn')).forEach(b => b.remove());
+
+        // Tek alt sayfa varsa inner strip'i gizle
+        if (task.subpages.length <= 1) {
+            this.innerNavBar.classList.add('hidden');
+            return;
+        }
+        this.innerNavBar.classList.remove('hidden');
+
+        task.subpages.forEach(sub => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'nav-btn';
+            btn.dataset.inner = sub.id;
+            btn.id = `navInner_${sub.id}`;
+            btn.textContent = sub.label;
+            btn.addEventListener('click', () => this.selectSubpage(outerId, sub.id));
+            btn.addEventListener('mouseenter', () => this.moveIndicator(btn, this.innerIndicator));
+            this.innerNav.insertBefore(btn, this.innerIndicator);
+        });
+
+        this.innerNav.addEventListener('mouseleave', () => {
+            const active = this.innerNav.querySelector('.nav-btn.active');
+            if (active) this.moveIndicator(active, this.innerIndicator);
+        }, { once: false });
+    }
+
+    selectOuter(outerId) {
+        const task = TaskRegistry.find(t => t.id === outerId);
+        if (!task) return;
+        this.activeOuter = outerId;
+
+        // Outer butonlar
+        this.outerNav.querySelectorAll('.nav-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.outer === outerId);
+        });
+        const activeBtn = this.outerNav.querySelector(`.nav-btn[data-outer="${outerId}"]`);
+        setTimeout(() => this.moveIndicator(activeBtn, this.outerIndicator), 30);
+
+        // Inner nav'ı yeniden inşa et + ilk subpage'i seç
+        this.buildInnerNav(outerId);
+        const firstSub = task.subpages[0];
+        if (firstSub) this.selectSubpage(outerId, firstSub.id);
+
+        // Mobile menüyü kapat
+        if (this.outerNav.classList.contains('nav-open')) this.outerNav.classList.remove('nav-open');
+    }
+
+    selectSubpage(outerId, subId) {
+        const task = TaskRegistry.find(t => t.id === outerId);
+        if (!task) return;
+        const sub = task.subpages.find(s => s.id === subId);
+        if (!sub) return;
+        this.activeSubpage = subId;
+
+        // Tüm sayfaları gizle, hedefi göster
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        const target = document.getElementById(sub.pageElementId);
+        if (target) target.classList.add('active');
+
+        // Inner butonlar
+        if (this.innerNav) {
+            this.innerNav.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.inner === subId);
+            });
+            const activeBtn = this.innerNav.querySelector(`.nav-btn[data-inner="${subId}"]`);
+            setTimeout(() => this.moveIndicator(activeBtn, this.innerIndicator), 30);
+        }
+
+        // Hook
+        if (typeof task.onSubpageActivate === 'function') {
+            task.onSubpageActivate(subId, this);
+        }
     }
 
     /* ——— Control Bindings ——— */
@@ -280,6 +473,7 @@ class App {
 
         ids.forEach(id => {
             const c = this.db.coords[id];
+            const ll = toLatLng(c.Y, c.X);
             const rawHtml = '<div class="node-marker" data-id="' + escapeHTML(id) + '">' + escapeHTML(id) + '</div>';
             const safeHtml = window.DOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
 
@@ -683,9 +877,970 @@ class App {
     }
 }
 
+/* ═══════════════════════════════════════════════
+   UYGULAMA-3 CONTROLLER — Silsile Düşey Açı
+   ═══════════════════════════════════════════════ */
+class U3Controller {
+    constructor() {
+        this.map = null;
+        this.stations = stations_u3;
+        this.constants = this.loadConstants();
+        this.selectedStation = null;
+        this.mosques = [];                 // Overpass'tan gelen tüm camiler
+        this.selectedMosqueIds = [];       // Sıralı 3 cami
+        this.observation = null;
+        this.activated = false;
+
+        // Marker layer'ları
+        this.stationMarkers = {};      // 46 sabit nokta için node-marker (uyg-2 stili)
+        this.radiusCircle = null;
+        this.mosqueMarkers = {};
+        this.clusterLayer = null;
+    }
+
+    loadConstants() {
+        const stored = localStorage.getItem('fcu_u3_constants');
+        if (stored) {
+            try { return { ...defaultConstants_u3, ...JSON.parse(stored) }; }
+            catch (_) { /* fallthrough */ }
+        }
+        return { ...defaultConstants_u3 };
+    }
+
+    saveConstants() {
+        localStorage.setItem('fcu_u3_constants', JSON.stringify(this.constants));
+    }
+
+    bindStaticControls() {
+        // İstasyon picker'ını ThemedSelect ile değiştir
+        const sel = document.getElementById('u3StationSelect');
+        const items = Object.keys(this.stations)
+            .sort((a, b) => Number(a) - Number(b))
+            .map(id => {
+                const s = this.stations[id];
+                return {
+                    value: id,
+                    label: `Nokta ${id}`,
+                    sublabel: `h = ${s.h.toFixed(2)} m  ·  Y = ${s.Y.toFixed(0)}  X = ${s.X.toFixed(0)}`
+                };
+            });
+        this.stationSelect = new ThemedSelect({
+            mountEl: sel,
+            items,
+            placeholder: '— İstasyon noktası seç —',
+            filterable: true,
+            onChange: (v) => this.onStationChange(v)
+        });
+
+        // Camileri yükle butonu
+        document.getElementById('u3LoadMosquesBtn')
+            .addEventListener('click', () => this.loadMosques());
+
+        // Temizle butonu
+        document.getElementById('u3ClearU3Btn')
+            .addEventListener('click', () => this.clearAll());
+
+        // Sabitler input'ları
+        const bindConst = (id, key, parser = parseFloat) => {
+            const el = document.getElementById(id);
+            el.value = this.constants[key];
+            el.addEventListener('change', () => {
+                const v = parser(el.value);
+                if (!isNaN(v)) {
+                    this.constants[key] = v;
+                    this.saveConstants();
+                    this.recomputeIfReady();
+                }
+            });
+        };
+        bindConst('u3ConstK', 'k');
+        bindConst('u3ConstR', 'R');
+        bindConst('u3ConstI', 'i');
+        bindConst('u3ConstT', 't_minare');
+
+        // Yakındaki N camiyi göster slider'ı
+        const slider = document.getElementById('u3NearbyN');
+        const sliderLabel = document.getElementById('u3NearbyNLabel');
+        if (slider && sliderLabel) {
+            slider.value = this.constants.nearbyN ?? 30;
+            sliderLabel.textContent = slider.value;
+            slider.addEventListener('input', () => {
+                sliderLabel.textContent = slider.value;
+                this.constants.nearbyN = parseInt(slider.value, 10);
+                this.saveConstants();
+                if (this.mosques.length > 0) {
+                    this.renderMosqueList();
+                    this.renderMosqueMarkers();
+                }
+            });
+        }
+
+        // Hesapla butonu
+        document.getElementById('u3CalcBtn')
+            .addEventListener('click', () => this.calculate());
+    }
+
+    activate() {
+        if (!this.activated) {
+            this.initMap();
+            this.activated = true;
+        }
+        if (this.map) this.map.invalidateSize();
+    }
+
+    initMap() {
+        const CENTER = [41.0241, 28.8868];   // YTU Davutpaşa default
+        this.map = L.map('geoMapU3', {
+            center: CENTER,
+            zoom: 15,
+            zoomControl: true
+        });
+
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        });
+        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20, attribution: '© Google'
+        });
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20, attribution: '© Google'
+        });
+        osm.addTo(this.map);
+
+        L.control.layers(
+            { 'Sokak (OSM)': osm, 'Uydu (Google)': googleSat, 'Hibrit (Google)': googleHybrid },
+            null,
+            { position: 'topright' }
+        ).addTo(this.map);
+
+        // Zoom değişikliğinde marker boyutlarını yeniden hesapla
+        this.map.on('zoomend', () => {
+            if (this.mosques.length > 0) this.renderMosqueMarkers();
+        });
+
+        // 46 istasyon noktasını haritada göster (uyg-2 ile aynı stil)
+        this.rebuildStationMarkers();
+    }
+
+    rebuildStationMarkers() {
+        Object.values(this.stationMarkers).forEach(mk => this.map.removeLayer(mk));
+        this.stationMarkers = {};
+
+        const ids = Object.keys(this.stations).sort((a, b) => Number(a) - Number(b));
+        const bounds = [];
+
+        ids.forEach(id => {
+            const s = this.stations[id];
+            const ll = toLatLng(s.Y, s.X);
+            bounds.push(ll);
+
+            const rawHtml = '<div class="node-marker" data-id="' + escapeHTML(id) + '">' + escapeHTML(id) + '</div>';
+            const safeHtml = window.DOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
+            const icon = L.divIcon({
+                className: '', html: safeHtml,
+                iconSize: [28, 28], iconAnchor: [14, 14]
+            });
+            const marker = L.marker(ll, { icon, riseOnHover: true }).addTo(this.map);
+
+            const tip = `<b>Nokta ${escapeHTML(id)}</b><br>Y: ${s.Y.toFixed(3)}<br>X: ${s.X.toFixed(3)}<br>h: ${s.h.toFixed(3)} m`;
+            marker.bindTooltip(window.DOMPurify ? DOMPurify.sanitize(tip) : tip,
+                               { direction: 'top', offset: [0, -10], opacity: 0.9 });
+            marker.on('click', () => {
+                if (this.stationSelect) this.stationSelect.setValue(id, true);
+                else this.onStationChange(id);
+            });
+            this.stationMarkers[id] = marker;
+        });
+
+        // Tüm noktaları çevreleyen bound'a fit
+        if (bounds.length > 0) {
+            this.map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 18 });
+        }
+    }
+
+    /* ——— İstasyon değişimi ——— */
+    onStationChange(stationId) {
+        this.clearMosques();
+        if (!stationId) {
+            this.selectedStation = null;
+            this.updateStationInfo();
+            this._setSelectedNodeMarker(null);
+            this._clearRadius();
+            document.getElementById('u3LoadMosquesBtn').disabled = true;
+            return;
+        }
+        this.selectedStation = stationId;
+        const s = this.stations[stationId];
+        const [lat, lng] = toLatLng(s.Y, s.X);
+
+        // Node-marker'ı 'selected' işaretle (uyg-2 ile aynı görünüm)
+        this._setSelectedNodeMarker(stationId);
+
+        // 10 km halkası
+        this._clearRadius();
+        this.radiusCircle = L.circle([lat, lng], {
+            radius: this.constants.searchRadiusKm * 1000,
+            color: '#C4956A',
+            fillColor: '#C4956A',
+            fillOpacity: 0.04,
+            weight: 1.5,
+            dashArray: '6 6'
+        }).addTo(this.map);
+
+        this.map.setView([lat, lng], 13);
+        this.updateStationInfo();
+        document.getElementById('u3LoadMosquesBtn').disabled = false;
+    }
+
+    _setSelectedNodeMarker(stationId) {
+        Object.entries(this.stationMarkers).forEach(([id, mk]) => {
+            const el = mk.getElement();
+            if (!el) return;
+            const inner = el.querySelector('.node-marker');
+            if (!inner) return;
+            inner.classList.toggle('selected', id === String(stationId));
+        });
+    }
+
+    _clearRadius() {
+        if (this.radiusCircle) { this.map.removeLayer(this.radiusCircle); this.radiusCircle = null; }
+    }
+
+    updateStationInfo() {
+        const div = document.getElementById('u3StationInfo');
+        if (!this.selectedStation) {
+            div.innerHTML = '<span class="empty-hint">Bir nokta seçin...</span>';
+            return;
+        }
+        const s = this.stations[this.selectedStation];
+        const [lat, lng] = toLatLng(s.Y, s.X);
+        div.innerHTML = `
+            <strong style="color: var(--accent);">Nokta ${escapeHTML(this.selectedStation)}</strong><br>
+            Y = ${s.Y.toFixed(3)} m<br>
+            X = ${s.X.toFixed(3)} m<br>
+            h = ${s.h.toFixed(3)} m<br>
+            φ ≈ ${lat.toFixed(5)}°, λ ≈ ${lng.toFixed(5)}°
+        `;
+    }
+
+    /* ——— Cami yükleme (Overpass) ——— */
+    async loadMosques() {
+        if (!this.selectedStation) return;
+        const btn = document.getElementById('u3LoadMosquesBtn');
+        const list = document.getElementById('u3MosquesList');
+        const s = this.stations[this.selectedStation];
+        const [lat, lng] = toLatLng(s.Y, s.X);
+
+        btn.disabled = true;
+        list.innerHTML = '<div style="padding: 0.6rem; color: var(--text-2);"><span class="u3-loading"></span>Overpass API\'den camiler çekiliyor...</div>';
+
+        try {
+            const radiusM = this.constants.searchRadiusKm * 1000;
+            const mosques = await fetchMosques(lat, lng, radiusM);
+            this.mosques = mosques;
+            this.renderMosqueList();
+            this.renderMosqueMarkers();
+        } catch (err) {
+            list.innerHTML = `<div style="padding: 0.6rem; color: var(--danger);">⚠ Hata: ${escapeHTML(err.message)}</div>`;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    renderMosqueList() {
+        const list = document.getElementById('u3MosquesList');
+        if (this.mosques.length === 0) {
+            list.innerHTML = '<span class="empty-hint">10 km halka içinde cami bulunamadı.</span>';
+            return;
+        }
+        list.innerHTML = '';
+        const N = this.constants.nearbyN ?? 30;
+        const visible = this.mosques.slice(0, N);
+        if (this.mosques.length > N) {
+            const note = document.createElement('div');
+            note.style.cssText = 'padding: 0.4rem 0.6rem; font-size: 0.72rem; color: var(--text-3); font-family: \'JetBrains Mono\', monospace;';
+            note.textContent = `${this.mosques.length} cami bulundu, en yakın ${N} tanesi gösteriliyor (slider).`;
+            list.appendChild(note);
+        }
+        visible.forEach(m => {
+            const orderIdx = this.selectedMosqueIds.indexOf(m.id);
+            const item = document.createElement('div');
+            item.className = 'u3-mosque-item' + (orderIdx >= 0 ? ' selected' : '');
+            const badge = orderIdx >= 0 ? `<span class="badge">${orderIdx + 1}</span>` : '';
+            const heightStr = m.height != null ? ` · h=${m.height}m` : '';
+            const minaretFlag = m.isMinaret ? ' 🗼' : '';
+            item.innerHTML = `
+                <div>${badge}<strong>${escapeHTML(m.name)}</strong>${minaretFlag}</div>
+                <div class="mosque-meta">${(m.distance / 1000).toFixed(2)} km${heightStr}</div>
+            `;
+            item.addEventListener('click', () => this.toggleMosque(m.id));
+            list.appendChild(item);
+        });
+    }
+
+    renderMosqueMarkers() {
+        // Mevcut marker'ları/cluster'ı temizle
+        Object.values(this.mosqueMarkers).forEach(mk => this.map.removeLayer(mk));
+        this.mosqueMarkers = {};
+        if (this.clusterLayer) { this.map.removeLayer(this.clusterLayer); this.clusterLayer = null; }
+
+        const N = this.constants.nearbyN ?? 30;
+        const visible = this.mosques.slice(0, N);
+        const zoom = this.map.getZoom();
+
+        // Cluster yalnızca seçilmemişler için (seçili olanlar üstte garanti görünür)
+        this.clusterLayer = (typeof L.markerClusterGroup === 'function')
+            ? L.markerClusterGroup({
+                maxClusterRadius: 50,
+                disableClusteringAtZoom: 14,
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: false,
+                iconCreateFunction: (cluster) => {
+                    const count = cluster.getChildCount();
+                    return L.divIcon({
+                        html: `<div class="u3-cluster-badge">${count}</div>`,
+                        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
+                    });
+                }
+            })
+            : null;
+
+        visible.forEach(m => {
+            const orderIdx = this.selectedMosqueIds.indexOf(m.id);
+            const selected = orderIdx >= 0;
+            let size, cls, label;
+            if (selected) {
+                size = 28; cls = 'u3-mosque-marker numbered'; label = String(orderIdx + 1);
+            } else if (zoom >= 17) {
+                size = 12; cls = 'u3-mosque-dot medium';      label = '';
+            } else {
+                size = 7;  cls = 'u3-mosque-dot';             label = '';
+            }
+            const html = `<div class="${cls}">${label}</div>`;
+            const marker = L.marker([m.lat, m.lng], {
+                icon: L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size/2, size/2] }),
+                riseOnHover: true
+            });
+            marker.bindTooltip(
+                `<b>${escapeHTML(m.name)}</b><br>${(m.distance / 1000).toFixed(2)} km${m.height != null ? '<br>h=' + m.height + ' m' : ''}`,
+                { direction: 'top', offset: [0, -10], opacity: 0.9 }
+            );
+            marker.on('click', () => this.toggleMosque(m.id));
+
+            // Seçili → direkt haritaya, asla cluster'a girmesin
+            if (selected || !this.clusterLayer) {
+                marker.addTo(this.map);
+            } else {
+                this.clusterLayer.addLayer(marker);
+            }
+            this.mosqueMarkers[m.id] = marker;
+        });
+
+        if (this.clusterLayer) this.map.addLayer(this.clusterLayer);
+    }
+
+    toggleMosque(mosqueId) {
+        const idx = this.selectedMosqueIds.indexOf(mosqueId);
+        if (idx >= 0) {
+            this.selectedMosqueIds.splice(idx, 1);
+        } else if (this.selectedMosqueIds.length < 3) {
+            this.selectedMosqueIds.push(mosqueId);
+        } else {
+            return;
+        }
+        this.updateSelectedMosquesUI();
+        this.renderMosqueList();
+        this.renderMosqueMarkers();
+        this.renderObsTable();
+    }
+
+    updateSelectedMosquesUI() {
+        const div = document.getElementById('u3SelectedMosques');
+        if (this.selectedMosqueIds.length === 0) {
+            div.innerHTML = '<span class="empty-hint">Sırayla 3 cami seçin (soldan-sağa)...</span>';
+        } else {
+            div.innerHTML = this.selectedMosqueIds.map((id, i) => {
+                const m = this.mosques.find(x => x.id === id);
+                return `<span class="chip">${i + 1}. ${escapeHTML(m ? m.name : id)}</span>`;
+            }).join('');
+        }
+    }
+
+    /* ——— Ölçü tablosu ——— */
+    renderObsTable() {
+        const div = document.getElementById('u3ObsTable');
+        const calcBtn = document.getElementById('u3CalcBtn');
+        if (this.selectedMosqueIds.length !== 3) {
+            div.innerHTML = '<span class="empty-hint">Önce 3 cami seçin...</span>';
+            calcBtn.disabled = true;
+            return;
+        }
+
+        // Eski observation varsa koru, yoksa yeni oluştur
+        if (!this.observation || this.observation.targets.length !== 3
+            || this.observation.targets.some((t, i) => t.mosqueId !== this.selectedMosqueIds[i])) {
+            this.observation = emptyObservation(this.selectedStation, this.selectedMosqueIds);
+        }
+
+        let html = `<table class="u3-obs-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Hedef Cami</th>
+                    <th>Yüz I  Z<sub>I</sub> (gon)</th>
+                    <th>Yüz II  Z<sub>II</sub> (gon)</th>
+                    <th>Z<sub>I</sub> + Z<sub>II</sub> − 400</th>
+                </tr>
+            </thead><tbody>`;
+
+        this.observation.targets.forEach((t, i) => {
+            const m = this.mosques.find(x => x.id === t.mosqueId);
+            const name = m ? m.name : t.mosqueId;
+            const z1 = t.Z_I != null ? t.Z_I : '';
+            const z2 = t.Z_II != null ? t.Z_II : '';
+            const diff = (t.Z_I != null && t.Z_II != null) ? (t.Z_I + t.Z_II - 400).toFixed(4) : '—';
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td class="target-cell">${escapeHTML(name)}</td>
+                <td><input type="number" step="0.0001" data-row="${i}" data-col="Z_I"  value="${z1}" placeholder="0.0000"></td>
+                <td><input type="number" step="0.0001" data-row="${i}" data-col="Z_II" value="${z2}" placeholder="0.0000"></td>
+                <td id="u3DiffCell_${i}" style="font-family: 'JetBrains Mono', monospace;">${diff}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        div.innerHTML = html;
+
+        // Input bind
+        div.querySelectorAll('input[type="number"]').forEach(inp => {
+            inp.addEventListener('input', () => this.onObsInput(inp));
+        });
+        this.updateCalcBtn();
+    }
+
+    onObsInput(inp) {
+        const row = Number(inp.dataset.row);
+        const col = inp.dataset.col;
+        const v = inp.value === '' ? null : parseFloat(inp.value);
+        this.observation.targets[row][col] = (v != null && !isNaN(v)) ? v : null;
+
+        // Diff cell + collimation visual
+        const t = this.observation.targets[row];
+        const diffCell = document.getElementById(`u3DiffCell_${row}`);
+        if (t.Z_I != null && t.Z_II != null) {
+            const d = t.Z_I + t.Z_II - 400;
+            diffCell.textContent = d.toFixed(4);
+            // Tolerans: |d| < 0.01 gon (≈ 32" — laboratuvar T2 için)
+            const tolOk = Math.abs(d) < 0.01;
+            const inputs = inp.parentElement.parentElement.querySelectorAll('input[type="number"]');
+            inputs.forEach(x => {
+                x.classList.remove('collimation-ok', 'collimation-warn');
+                x.classList.add(tolOk ? 'collimation-ok' : 'collimation-warn');
+            });
+            diffCell.style.color = tolOk ? 'var(--success)' : 'var(--danger)';
+        } else {
+            diffCell.textContent = '—';
+            diffCell.style.color = 'var(--text-3)';
+        }
+
+        this.updateCalcBtn();
+    }
+
+    updateCalcBtn() {
+        const allFilled = this.observation && this.observation.targets.every(t => t.Z_I != null && t.Z_II != null);
+        document.getElementById('u3CalcBtn').disabled = !allFilled;
+    }
+
+    recomputeIfReady() {
+        if (this.observation && this.observation.targets.every(t => t.Z_I != null && t.Z_II != null)) {
+            this.calculate();
+        }
+        // Halka yarıçapı değişti mi kontrol et
+        if (this.radiusCircle && this.selectedStation) {
+            const s = this.stations[this.selectedStation];
+            const [lat, lng] = toLatLng(s.Y, s.X);
+            this.radiusCircle.setLatLng([lat, lng]);
+            this.radiusCircle.setRadius(this.constants.searchRadiusKm * 1000);
+        }
+    }
+
+    /* ——— Hesap ——— */
+    calculate() {
+        if (!this.observation || !this.selectedStation) return;
+        const result = reduceSilsile(this.observation);
+        if (result.n === 0) {
+            document.getElementById('u3Results').innerHTML =
+                '<span class="empty-hint">Geçerli ölçü bulunamadı.</span>';
+            return;
+        }
+
+        const station = this.stations[this.selectedStation];
+        const html = this.renderResults(result, station);
+        document.getElementById('u3Results').innerHTML = html;
+
+        // KaTeX renderı
+        if (window.renderMathInElement) {
+            renderMathInElement(document.getElementById('u3Results'), {
+                delimiters: [
+                    { left: '$$', right: '$$', display: true },
+                    { left: '$', right: '$', display: false }
+                ],
+                throwOnError: false
+            });
+        }
+    }
+
+    renderResults(result, station) {
+        // Per-target jeodezik kıyas
+        const comparisons = result.reduced.map(r => {
+            if (!r) return null;
+            const m = this.mosques.find(x => x.id === r.mosqueId);
+            if (!m) return { mosqueId: r.mosqueId, error: 'Cami bulunamadı.' };
+
+            // Cami'nin TUREF Y/X karşılığı
+            const [Y_m, X_m] = proj4('EPSG:4326', 'TUREF_TM30', [m.lng, m.lat]);
+            // Cami zemin yüksekliği bilinmiyor → ölçümden geri-çöz, ya da NULL bırak
+            const mosqueGroundH = null;   // OSM'de yok; sadece ölçüm tarafı hesaplanır
+            const cmp = compareTarget(
+                station.Y, station.X, station.h,
+                Y_m, X_m, mosqueGroundH,
+                r.Z_mean, this.constants
+            );
+            return {
+                mosqueId: r.mosqueId,
+                name: m.name,
+                Z_I: r.Z_I, Z_II: r.Z_II, Z_mean: r.Z_mean, alpha: r.alpha, c: r.c,
+                D: cmp.D, az: cmp.az,
+                dh_geom: cmp.dh_geom, dh_corr: cmp.dh_corr,
+                H_top_measured: cmp.H_top_measured,
+                osmHeight: m.height
+            };
+        }).filter(Boolean);
+
+        // Özet kartlar
+        let html = `
+            <div class="u3-result-grid">
+                <div class="u3-result-card">
+                    <div class="label">Geçerli Hedef Sayısı</div>
+                    <div class="value">${result.n} / 3</div>
+                </div>
+                <div class="u3-result-card">
+                    <div class="label">Bir Doğrultu Std</div>
+                    <div class="value">${fmtGon(result.s_direction, 4)}</div>
+                    <div class="sub">Bessel: σ = √(Σd² / 2n)</div>
+                </div>
+                <div class="u3-result-card">
+                    <div class="label">Kesin Doğrultu Std</div>
+                    <div class="value">${fmtGon(result.s_mean, 4)}</div>
+                    <div class="sub">σ̄ = σ / √2</div>
+                </div>
+                <div class="u3-result-card">
+                    <div class="label">Kollimasyon Yayılımı</div>
+                    <div class="value">${fmtGon(result.s_collimation, 4)}</div>
+                    <div class="sub">3 hedef arası c tutarlılığı</div>
+                </div>
+            </div>
+        `;
+
+        // Ana hesap tablosu
+        html += `<h3 style="margin: 1rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">① Silsile İndirgemesi</h3>`;
+        html += `<table class="u3-obs-table">
+            <thead>
+                <tr>
+                    <th>Cami</th>
+                    <th>Z<sub>I</sub></th>
+                    <th>Z<sub>II</sub></th>
+                    <th>Z̄ (kesin)</th>
+                    <th>α (yükseklik)</th>
+                    <th>α (DMS)</th>
+                    <th>c (kollimasyon)</th>
+                </tr>
+            </thead><tbody>`;
+        comparisons.forEach(c => {
+            html += `<tr>
+                <td class="target-cell">${escapeHTML(c.name)}</td>
+                <td>${fmtGon(c.Z_I)}</td>
+                <td>${fmtGon(c.Z_II)}</td>
+                <td>${fmtGon(c.Z_mean)}</td>
+                <td>${fmtGon(c.alpha)}</td>
+                <td>${gonToDms(c.alpha)}</td>
+                <td style="color: ${Math.abs(c.c) < 0.005 ? 'var(--success)' : 'var(--danger)'}">${fmtGon(c.c, 5)}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Geodezik kıyas tablosu
+        html += `<h3 style="margin: 1.5rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">② Geodezik Kıyas (TUREF/TM30)</h3>`;
+        html += `<table class="u3-obs-table">
+            <thead>
+                <tr>
+                    <th>Cami</th>
+                    <th>D (m)</th>
+                    <th>Azimut</th>
+                    <th>Δh<sub>geom</sub> = D·cot(Z̄)</th>
+                    <th>Δh<sub>düz</sub> = (1−k)D²/(2R)</th>
+                    <th>H<sub>tepe</sub> (ölçü)</th>
+                    <th>OSM h</th>
+                </tr>
+            </thead><tbody>`;
+        comparisons.forEach(c => {
+            html += `<tr>
+                <td class="target-cell">${escapeHTML(c.name)}</td>
+                <td>${fmtMeter(c.D, 2)}</td>
+                <td>${fmtGon(c.az, 4)}</td>
+                <td>${fmtMeter(c.dh_geom, 3)}</td>
+                <td style="color: var(--accent);">${fmtMeter(c.dh_corr, 3)}</td>
+                <td><strong>${fmtMeter(c.H_top_measured, 2)}</strong></td>
+                <td>${c.osmHeight != null ? c.osmHeight.toFixed(1) + ' m' : '—'}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+
+        // Formüller (KaTeX)
+        html += `
+            <h3 style="margin: 1.5rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">③ Kullanılan Formüller</h3>
+            <div style="background: rgba(0,0,0,0.25); padding: 1rem 1.2rem; border-radius: var(--radius-sm); border-left: 3px solid var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-2); line-height: 1.8;">
+                $$ \\bar{Z} = \\tfrac{1}{2}\\bigl( Z_{I} + (400^{g} - Z_{II}) \\bigr),\\quad c = \\tfrac{1}{2}(Z_{I}+Z_{II}-400^{g}) $$
+                $$ \\sigma = \\sqrt{\\dfrac{\\sum d^{2}}{2n}},\\quad \\bar\\sigma = \\dfrac{\\sigma}{\\sqrt{2}},\\quad d = Z_{I}+Z_{II}-400^{g} $$
+                $$ \\Delta h = D \\cot(\\bar Z) + (1-k)\\dfrac{D^{2}}{2R} + (i-t) $$
+                <div style="font-size: 0.78rem; color: var(--text-3); margin-top: 0.6rem;">k = ${this.constants.k}, R = ${this.constants.R} m, i = ${this.constants.i} m, t = ${this.constants.t_minare} m</div>
+            </div>
+        `;
+
+        return html;
+    }
+
+    /* ——— Temizleme ——— */
+    clearAll() {
+        this.clearMosques();
+        if (this.stationSelect) this.stationSelect.setValue(null);
+        this.selectedStation = null;
+        this._setSelectedNodeMarker(null);
+        this._clearRadius();
+        this.updateStationInfo();
+        document.getElementById('u3LoadMosquesBtn').disabled = true;
+        document.getElementById('u3Results').innerHTML =
+            '<span class="empty-hint">Ölçüleri girip "Hesapla" butonuna basın...</span>';
+    }
+
+    clearMosques() {
+        this.selectedMosqueIds = [];
+        this.observation = null;
+        this.mosques = [];
+        Object.values(this.mosqueMarkers).forEach(mk => this.map && this.map.removeLayer(mk));
+        this.mosqueMarkers = {};
+        document.getElementById('u3MosquesList').innerHTML =
+            '<span class="empty-hint">Önce istasyon seçin, sonra "Camileri Yükle" butonuna basın.</span>';
+        this.updateSelectedMosquesUI();
+        this.renderObsTable();
+    }
+}
+
 /* ═══ UTILITY ═══ */
 function capitalize(s) {
     return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function escapeHTML(str) {
+    return String(str).replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag] || tag)
+    );
+}
+
+
+
+/* ═══════════════════════════════════════════════
+   U4 CONTROLLER — Poligon (Traverse)
+   ═══════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════
+   U4 CONTROLLER — Poligon (Traverse)
+   ═══════════════════════════════════════════════ */
+class U4Controller {
+    constructor(app) { this.app = app; this.map = null; this.synthData = null; this.markers = []; this.lineLayer = null; this.loaded = false; }
+    activate() {
+        const self = this;
+        if (!this.map) this.initMap();
+        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadAndCalc(); self.loaded = true; }, 300);
+        const el = document.getElementById('u4LoadBtn'); if (el) el.onclick = () => self.loadAndCalc();
+        document.getElementById('u4StudentId')?.addEventListener('input', function() {
+            document.getElementById('u4XX').value = parseInt(this.value) % 100;
+        });
+    }
+    initMap() {
+        const el = document.getElementById('u4Map'); if (!el || this.map) return;
+        this.map = L.map('u4Map', { zoomControl: true }).setView([41.0241, 28.8866], 17);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
+    }
+    loadAndCalc() {
+        const sid = parseInt(document.getElementById('u4StudentId')?.value || '24046607');
+        const pathStr = document.getElementById('u4TraversePath')?.value || '43,44,46,47,45';
+        const path = pathStr.split(',').map(Number);
+        const coords = this.app.db.coords;
+        const { XX } = studentModifiers(sid);
+        this.synthData = synthU4(coords, path, sid);
+        this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
+        if (this.lineLayer) this.map.removeLayer(this.lineLayer);
+        const latlngs = [];
+        for (const pid of path) {
+            const pt = coords[pid]; if (!pt) continue;
+            const ll = toLatLng(pt.Y, pt.X);
+            latlngs.push(ll);
+            const isEP = (pid === path[0] || pid === path[path.length-1]);
+            const m = L.circleMarker(ll, { radius: isEP ? 8 : 6, fillColor: isEP ? '#2196f3' : '#ff9800', color: '#fff', weight: 2, fillOpacity: 0.9 })
+                .bindPopup('<b>Nokta ' + pid + '</b><br>Y: ' + pt.Y.toFixed(3) + '<br>X: ' + pt.X.toFixed(3) + '<br>h: ' + pt.h.toFixed(3) + (isEP ? '<br><em>Sabit</em>' : '')).addTo(this.map);
+            this.markers.push(m);
+        }
+        this.lineLayer = L.polyline(latlngs, { color: '#ff9800', weight: 3, dashArray: '8,6' }).addTo(this.map);
+        if (latlngs.length) this.map.fitBounds(latlngs, { padding: [40, 40] });
+        this.renderResults(path, coords, XX);
+        this.renderReport(path, coords, XX);
+    }
+    renderResults(path, coords, XX) {
+        const edges = this.synthData.edges;
+        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Kenar Indirgeme Tablosu</strong> (K_atm=1.00' + XX + ')</div>';
+        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S<sub>egik</sub></th><th>Z (gon)</th><th>S<sub>yatay</sub></th><th>H<sub>ort</sub></th><th>S<sub>proj</sub></th></tr></thead><tbody>';
+        for (const e of edges) {
+            const hF = coords[e.from]?.h || 0, hT = coords[e.to]?.h || 0;
+            const hM = ((hF + hT) / 2).toFixed(2);
+            const sH = e.slopeDist * Math.sin(e.zenithAngle * Math.PI / 200);
+            const sP = sH * 6371000 / (6371000 + parseFloat(hM));
+            html += '<tr><td>' + e.from + '&rarr;' + e.to + '</td><td>' + e.slopeDist.toFixed(4) + '</td><td>' + e.zenithAngle.toFixed(4) + '</td><td>' + sH.toFixed(4) + '</td><td>' + hM + '</td><td style="color:var(--accent)">' + sP.toFixed(4) + '</td></tr>';
+        }
+        html += '</tbody></table>';
+        document.getElementById('u4EdgeTable').innerHTML = html;
+        try {
+            const result = computeU4(coords, path, edges, this.synthData.stations, XX);
+            const { closure, adjusted } = result;
+            let rh = '<div class="panel-title-bar" style="margin-top:1rem;margin-bottom:0.5rem;"><strong>Poligon Dengeleme (Bowditch)</strong></div>';
+            rh += '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.85rem;background:var(--bg-3);padding:0.6rem;border-radius:8px;">';
+            rh += '<span>f<sub>x</sub>: <b style="color:' + (Math.abs(closure.fx)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fx.toFixed(4) + '</b> m</span>';
+            rh += '<span>f<sub>y</sub>: <b style="color:' + (Math.abs(closure.fy)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fy.toFixed(4) + '</b> m</span>';
+            rh += '<span>f<sub>s</sub>: <b style="color:' + (Math.abs(closure.fs)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fs.toFixed(4) + '</b> m</span>';
+            rh += '<span>Bagil hata: <b>1/' + Math.round(1/closure.relErr) + '</b></span></div>';
+            rh += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Y<sub>hesap</sub></th><th>X<sub>hesap</sub></th><th>Y<sub>gercek</sub></th><th>X<sub>gercek</sub></th><th>dY (mm)</th><th>dX (mm)</th></tr></thead><tbody>';
+            const comp = compareCoords4(coords, adjusted, path);
+            for (const r of comp) rh += '<tr><td>' + r.point + '</td><td>' + r.Y_comp + '</td><td>' + r.X_comp + '</td><td>' + r.Y_true + '</td><td>' + r.X_true + '</td><td style="color:' + (Math.abs(r.dY)>0.05?'var(--danger)':'inherit') + '">' + (r.dY*1000).toFixed(1) + '</td><td style="color:' + (Math.abs(r.dX)>0.05?'var(--danger)':'inherit') + '">' + (r.dX*1000).toFixed(1) + '</td></tr>';
+            rh += '</tbody></table>';
+            document.getElementById('u4Results').innerHTML = rh;
+        } catch (e) { document.getElementById('u4Results').innerHTML = '<p style="color:var(--danger)">Hata: ' + e.message + '</p>'; }
+    }
+    renderReport(path, coords, XX) {
+        const el = document.getElementById('u4ReportContent'); if (!el) return;
+        const edges = this.synthData.edges;
+        let totalDist = edges.reduce((s, e) => s + e.horizontalDist, 0);
+        let nStations = this.synthData.stations.length;
+        let html = '<div class="result-section">';
+        html += '<h3 style="color:var(--accent);margin-bottom:0.5rem;">Uygulama-4 Raporu: Dayali Poligon Hesabi</h3>';
+        html += '<p><strong>Ogrenci:</strong> 24046607 (Ertugrul) &mdash; <strong>Nokta:</strong> 48 | <strong>XX:</strong> ' + XX + '</p>';
+        html += '<p><strong>Poligon Guzergahi:</strong> ' + path.join(' &rarr; ') + '</p>';
+        html += '<p><strong>Istasyon Sayisi:</strong> ' + nStations + ' | <strong>Toplam Mesafe:</strong> ' + totalDist.toFixed(2) + ' m</p>';
+        html += '<p><strong>Atmosferik Duzeltme:</strong> K<sub>atm</sub> = 1.00' + XX + ' (1. Hiz duzeltmesi)</p>';
+        html += '<p><strong>Projeksiyon Indirgemesi:</strong> S<sub>proj</sub> = S<sub>yatay</sub> &times; R/(R+H<sub>ort</sub>) | R=6371 km</p>';
+        try {
+            const result = computeU4(coords, path, edges, this.synthData.stations, XX);
+            const c = result.closure;
+            html += '<p><strong>Kapanma Hatalari:</strong> f<sub>x</sub>=' + c.fx.toFixed(4) + ' m, f<sub>y</sub>=' + c.fy.toFixed(4) + ' m, f<sub>s</sub>=' + c.fs.toFixed(4) + ' m</p>';
+            html += '<p><strong>Bagil Hata:</strong> 1/' + Math.round(1/c.relErr) + ' &mdash; ';
+            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas olcum (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Dusuk hassasiyet &mdash; olcu tekrari onerilir</span>');
+            html += '</p>';
+            const comp = compareCoords4(coords, result.adjusted, path);
+            const maxDY = Math.max(...comp.map(r => Math.abs(r.dY)));
+            const maxDX = Math.max(...comp.map(r => Math.abs(r.dX)));
+            html += '<p><strong>Maksimum Koordinat Sapmasi:</strong> dY<sub>max</sub>=' + (maxDY*1000).toFixed(1) + ' mm, dX<sub>max</sub>=' + (maxDX*1000).toFixed(1) + ' mm</p>';
+        } catch(e) { html += '<p style="color:var(--danger);">Dengeleme hesaplanamadi.</p>'; }
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Bowditch (pusula) kurali ile dengeleme yapilmistir. Hatalar mesafeyle orantili dagitilmistir.</p>';
+        html += '</div>';
+        el.innerHTML = html;
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   U5 CONTROLLER — Nivelman (Leveling)
+   ═══════════════════════════════════════════════ */
+class U5Controller {
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.lineLayer = null; this.loaded = false; }
+    activate() {
+        const self = this;
+        if (!this.map) this.initMap();
+        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadReal(); self.loaded = true; }, 300);
+        const el = document.getElementById('u5LoadBtn'); if (el) el.onclick = () => self.loadReal();
+    }
+    initMap() {
+        const el = document.getElementById('u5Map'); if (!el || this.map) return;
+        this.map = L.map('u5Map', { zoomControl: true }).setView([41.0241, 28.8868], 17);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
+    }
+    loadReal() {
+        const self = this; const data = U5_REAL; const coords = this.app.db.coords; const XX = 7;
+        self.markers.forEach(m => self.map.removeLayer(m)); self.markers = [];
+        if (self.lineLayer) self.map.removeLayer(self.lineLayer);
+        const chain = []; const seen = new Set();
+        for (const leg of data) {
+            for (const pid of [leg.from, leg.to]) {
+                if (seen.has(pid)) continue; seen.add(pid);
+                const numId = parseInt(pid.replace(/[^0-9]/g, ''));
+                const pt = coords[numId];
+                if (pt) { const ll = toLatLng(pt.Y, pt.X); chain.push({ id: pid, numId, ...pt, lat: ll[0], lon: ll[1] }); }
+            }
+        }
+        const latlngs = chain.map(c => [c.lat, c.lon]);
+        for (const c of chain) {
+            const isRS = (c.id === 'N38' || c.id === 'N49');
+            const marker = L.circleMarker([c.lat, c.lon], { radius: isRS ? 8 : 6, fillColor: isRS ? '#2196f3' : '#4caf50', color: '#fff', weight: 2, fillOpacity: 0.9 })
+                .bindPopup('<b>' + c.id + '</b><br>h: ' + c.h.toFixed(3) + ' m' + (isRS ? '<br><em>RS Sabit Nokta</em>' : '')).addTo(self.map);
+            self.markers.push(marker);
+        }
+        self.lineLayer = L.polyline(latlngs, { color: '#4caf50', weight: 3 }).addTo(self.map);
+        if (latlngs.length) self.map.fitBounds(latlngs, { padding: [40, 40] });
+        self.renderGeoTable(data, XX);
+        self.renderReport(data, XX, chain);
+    }
+    renderGeoTable(data, XX) {
+        const rsMod = 1 + XX / 1000;
+        const hRS_N38 = (rsBenchmarks["N38"]?.h_base || 0) + rsMod;
+        const hRS_N49_known = (rsBenchmarks["N49"]?.h_base || 0) + rsMod;
+        let runningH = hRS_N38; let sumDh = 0;
+        for (const leg of data) { sumDh += (leg.BS - leg.FS); }
+        const closure = hRS_N38 + sumDh - hRS_N49_known;
+        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Geometrik Nivelman Cizelgesi</strong> &mdash; XX=' + XX + ', RS duzeltmesi: +' + rsMod.toFixed(3) + ' m</div>';
+        html += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>BS (m)</th><th>FS (m)</th><th>&Delta;h (m)</th><th>H<sub>i</sub> (m)</th></tr></thead><tbody>';
+        html += '<tr><td style="color:#2196f3;font-weight:bold;">N38 ★ RS</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td style="color:#2196f3;font-weight:bold;">' + hRS_N38.toFixed(4) + '</td></tr>';
+        runningH = hRS_N38;
+        for (const l of data) {
+            const dh = l.BS - l.FS; runningH += dh;
+            html += '<tr><td>' + l.from + '&rarr;' + l.to + '</td><td>' + l.BS.toFixed(4) + '</td><td>' + l.FS.toFixed(4) + '</td><td style="color:var(--accent);">' + dh.toFixed(4) + '</td><td>' + runningH.toFixed(4) + '</td></tr>';
+        }
+        html += '<tr style="font-weight:bold;border-top:2px solid var(--border);background:var(--bg-3);"><td colspan="3">Toplam &Delta;h</td><td style="color:var(--accent);">' + sumDh.toFixed(4) + '</td><td></td></tr>';
+        html += '<tr style="background:var(--bg-3);"><td colspan="3" style="color:#2196f3;">N49 ★ RS (bilinen)</td><td style="color:' + (Math.abs(closure)>0.01?'var(--danger)':'var(--accent)') + ';">&Delta;=' + closure.toFixed(4) + ' m</td><td style="color:#2196f3;font-weight:bold;">' + hRS_N49_known.toFixed(4) + '</td></tr>';
+        html += '</tbody></table>';
+        const totalDist = data.reduce((s, l) => s + l.bsDist + l.fsDist, 0);
+        const tolerance = 0.006 * Math.sqrt(totalDist / 1000) + 0.02;
+        html += '<div style="margin-top:0.4rem;font-size:0.78rem;padding:0.4rem 0.6rem;background:var(--bg-3);border-radius:6px;">';
+        html += '&Sigma; mesafe: <b>' + totalDist.toFixed(0) + '</b> m | Tolerans: <b>&plusmn;' + (tolerance*1000).toFixed(1) + '</b> mm | Kapanma: <b style="color:' + (Math.abs(closure)<tolerance?'#4caf50':'var(--danger)') + ';">' + (closure*1000).toFixed(1) + ' mm</b> ';
+        html += (Math.abs(closure) < tolerance ? '<span style="color:#4caf50;">&check; KABUL</span>' : '<span style="color:var(--danger);">&cross; RED</span>') + '</div>';
+        document.getElementById('u5GeoTable').innerHTML = html;
+        document.getElementById('u5TrigTable').innerHTML = '<div style="margin-top:0.75rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;"><strong style="color:var(--accent);">Trigonometrik Nivelman</strong><br><span style="color:var(--text-3);font-size:0.8rem;">Total station verisi girildiginde aktif olacak.</span></div>';
+        document.getElementById('u5Compare').innerHTML = '<div style="margin-top:0.5rem;color:var(--text-3);font-size:0.8rem;"><em>Geo vs Trig karsilastirmasi — trig verisiyle aktif.</em></div>';
+    }
+    renderReport(data, XX, chain) {
+        const el = document.getElementById('u5ReportContent'); if (!el) return;
+        const rsMod = 1 + XX / 1000;
+        const hRS_N38 = (rsBenchmarks["N38"]?.h_base || 0) + rsMod;
+        const hRS_N49 = (rsBenchmarks["N49"]?.h_base || 0) + rsMod;
+        let sumDh = 0; for (const l of data) sumDh += (l.BS - l.FS);
+        const closure = hRS_N38 + sumDh - hRS_N49;
+        const totalDist = data.reduce((s, l) => s + l.bsDist + l.fsDist, 0);
+        const tolerance = 0.006 * Math.sqrt(totalDist / 1000) + 0.02;
+        let html = '<div class="result-section">';
+        html += '<h3 style="color:var(--accent);margin-bottom:0.5rem;">Uygulama-5 Raporu: Geometrik Nivelman</h3>';
+        html += '<p><strong>Ogrenci:</strong> 24046607 (Ertugrul) &mdash; <strong>Nokta:</strong> 48 | <strong>XX:</strong> ' + XX + '</p>';
+        html += '<p><strong>Tarih:</strong> 10 Haziran 2026, 15:48 | <strong>Alet:</strong> Nivo (otomatik) | <strong>Hava:</strong> Acik</p>';
+        html += '<p><strong>Nivelman Hatti:</strong> ' + chain.map(c => c.id).join(' &rarr; ') + '</p>';
+        html += '<p><strong>RS Noktalari:</strong> N38 (baslangic) ve N49 (bitis) — Davutpasa sabit nivelman agi</p>';
+        html += '<p><strong>Ogrenci Duzeltmesi:</strong> RS yuksekliklerine +' + rsMod.toFixed(3) + ' m eklenmistir (XX=' + XX + ')</p>';
+        html += '<p><strong>Toplam Mesafe:</strong> ' + totalDist.toFixed(0) + ' m (6 ayak, her ayak 2 kurulum)</p>';
+        html += '<p><strong>Toplam Yukseklik Farki:</strong> &Sigma;&Delta;h = ' + sumDh.toFixed(4) + ' m</p>';
+        html += '<p><strong>RS Kapanma Hatasi:</strong> ' + closure.toFixed(4) + ' m (' + (closure*1000).toFixed(1) + ' mm) | Tolerans: &plusmn;' + (tolerance*1000).toFixed(1) + ' mm</p>';
+        html += '<p><strong>Degerlendirme:</strong> ';
+        if (Math.abs(closure) < tolerance) {
+            html += '<span style="color:#4caf50;">Kapanma tolerans dahilinde. Nivelman olcumleri basarili.</span>';
+        } else {
+            html += '<span style="color:var(--danger);">Kapanma toleransi asiyor (' + (Math.abs(closure)*1000).toFixed(1) + ' mm > ' + (tolerance*1000).toFixed(1) + ' mm). Olasi nedenler: mira okuma hatalari, alet kurulum hatalari, RS noktalarinda oturma.</span>';
+        }
+        html += '</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Nivelman hesaplari, geometrik nivelman yontemiyle (BS-FS) yapilmistir. Her ayak icin 2 bagimsiz nivo kurulumu gerceklestirilmistir.</p>';
+        html += '</div>';
+        el.innerHTML = html;
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   U6 CONTROLLER — 3B Konumlama (3D Positioning)
+   ═══════════════════════════════════════════════ */
+class U6Controller {
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.loaded = false; }
+    activate() {
+        const self = this;
+        if (!this.map) this.initMap();
+        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadReal(); self.loaded = true; }, 300);
+        const el = document.getElementById('u6LoadBtn'); if (el) el.onclick = () => self.loadReal();
+    }
+    initMap() {
+        const el = document.getElementById('u6Map'); if (!el || this.map) return;
+        this.map = L.map('u6Map', { zoomControl: true }).setView([41.0240, 28.8869], 18);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
+    }
+    loadReal() {
+        const self = this; const data = U6_REAL;
+        self.markers.forEach(m => self.map.removeLayer(m)); self.markers = [];
+        const colorMap = { parcel: '#4caf50', parcel_repeat: '#81c784', detail: '#2196f3', pole: '#ff9800', tree: '#8bc34a', control: '#9c27b0' };
+        const typeLabels = { parcel: 'Parsel kosesi', parcel_repeat: 'Parsel (tekrar)', detail: 'Detay', pole: 'Elektrik diregi', tree: 'Agac', control: 'Kontrol' };
+        const groups = {};
+        for (const d of data) {
+            const ll = toLatLng(d.Y, d.X);
+            if (!groups[d.type]) groups[d.type] = []; groups[d.type].push(d);
+            const color = colorMap[d.type] || '#999'; const H = (d.h_ell - N_GEOID).toFixed(3);
+            const m = L.circleMarker(ll, { radius: d.type === 'parcel' ? 7 : 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.85 })
+                .bindPopup('<b>' + d.id + '</b><br>' + (typeLabels[d.type] || d.type) + '<br>Y: ' + d.Y.toFixed(3) + '<br>X: ' + d.X.toFixed(3) + '<br>h<sub>ell</sub>: ' + d.h_ell + ' m<br>H<sub>orto</sub>: ' + H + ' m').addTo(self.map);
+            self.markers.push(m);
+        }
+        if (self.markers.length) self.map.fitBounds(L.latLngBounds(self.markers.map(m => m.getLatLng())), { padding: [30, 30] });
+        self.renderTable(data, colorMap, typeLabels, groups);
+        self.renderReport(data, groups);
+    }
+    renderTable(data, colorMap, typeLabels, groups) {
+        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>RTK GPS Olculeri</strong> &mdash; EGM96 N=' + N_GEOID.toFixed(1) + ' m | CORS: YLDZ</div>';
+        html += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Y (Dogu)</th><th>X (Kuzey)</th><th>h<sub>ell</sub> (m)</th><th>H<sub>orto</sub> (m)</th><th>Tur</th></tr></thead><tbody>';
+        for (const d of data) {
+            const color = colorMap[d.type] || '#999'; const H = (d.h_ell - N_GEOID).toFixed(3);
+            html += '<tr><td style="color:' + color + ';font-weight:bold;">' + d.id + '</td><td>' + d.Y.toFixed(3) + '</td><td>' + d.X.toFixed(3) + '</td><td>' + d.h_ell + '</td><td style="color:var(--accent);">' + H + '</td><td><span style="background:' + color + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:0.7rem;">' + (typeLabels[d.type] || d.type) + '</span></td></tr>';
+        }
+        html += '</tbody></table>';
+        html += '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.7rem;">';
+        for (const [type, pts] of Object.entries(groups)) {
+            const avgH = (pts.reduce((s, p) => s + (p.h_ell - N_GEOID), 0) / pts.length).toFixed(3);
+            html += '<span style="background:var(--bg-3);padding:2px 8px;border-radius:4px;">' + (typeLabels[type] || type) + ': <b>' + pts.length + '</b>, H<sub>ort</sub>&asymp;' + avgH + ' m</span>';
+        }
+        html += '</div>';
+        html += '<div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-3);border-radius:6px;font-size:0.75rem;"><strong style="color:var(--accent);">Tekrar Olcusu Kontrolu</strong><br>';
+        const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
+        if (P4 && P41) { const dx = P4.X - P41.X, dy = P4.Y - P41.Y, dh = P4.h_ell - P41.h_ell; const ds = Math.sqrt(dx*dx + dy*dy); html += 'P.4 &harr; P.41: &Delta;X=' + (dx*1000).toFixed(1) + ' mm, &Delta;Y=' + (dy*1000).toFixed(1) + ' mm, &Delta;S=' + (ds*1000).toFixed(1) + ' mm ' + (ds < 0.05 ? '<span style="color:#4caf50;">&check; Tutarli</span>' : '<span style="color:var(--danger);">&cross; Fark var</span>'); }
+        const N38 = data.find(d => d.id === 'N.38'); const pt38 = this.app.db.coords[38];
+        if (N38 && pt38) { const dx = N38.X - pt38.X, dy = N38.Y - pt38.Y; const ds = Math.sqrt(dx*dx + dy*dy); html += '<br>N.38 &harr; Nokta 38 (sabit): &Delta;X=' + (dx*1000).toFixed(1) + ' mm, &Delta;Y=' + (dy*1000).toFixed(1) + ' mm, &Delta;S=' + (ds*1000).toFixed(1) + ' mm ' + (ds < 0.05 ? '<span style="color:#4caf50;">&check; Tutarli</span>' : '<span style="color:var(--danger);">&cross; Fark var</span>'); }
+        html += '</div>';
+        document.getElementById('u6RtkTable').innerHTML = html;
+        document.getElementById('u6Compare').innerHTML = '<div style="margin-top:0.75rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;"><strong style="color:var(--accent);">Yontem Karsilastirmasi</strong><br><span style="color:var(--text-3);font-size:0.8rem;">U4/U5 hesaplandiginda 3B karsilastirma burada gosterilecek.</span></div>';
+    }
+    renderReport(data, groups) {
+        const el = document.getElementById('u6ReportContent'); if (!el) return;
+        let html = '<div class="result-section">';
+        html += '<h3 style="color:var(--accent);margin-bottom:0.5rem;">Uygulama-6 Raporu: Uc Boyutlu Konumlama (RTK GPS)</h3>';
+        html += '<p><strong>Ogrenci:</strong> 24046607 (Ertugrul) &mdash; <strong>Nokta:</strong> 48</p>';
+        html += '<p><strong>CORS Istasyonu:</strong> YLDZ (Yildiz Sabit GNSS Istasyonu) | <strong>Datum:</strong> ITRF96 / TUREF TM30</p>';
+        html += '<p><strong>Jeoit Modeli:</strong> EGM96 | <strong>Ortalama Undulasyon:</strong> N &asymp; ' + N_GEOID.toFixed(1) + ' m (Davutpasa bolgesi)</p>';
+        html += '<p><strong>Toplam Nokta:</strong> ' + data.length + ' adet</p>';
+        let breakdown = [];
+        for (const [type, pts] of Object.entries(groups)) {
+            breakdown.push(pts.length + ' ' + (type === 'parcel' ? 'parsel kosesi' : type === 'detail' ? 'detay' : type === 'pole' ? 'direk' : type === 'tree' ? 'agac' : type === 'control' ? 'kontrol' : type));
+        }
+        html += '<p><strong>Dagilim:</strong> ' + breakdown.join(', ') + '</p>';
+        html += '<p><strong>Ortometrik Yukseklik Hesabi:</strong> H = h<sub>ellipsoidal</sub> - N (N=' + N_GEOID.toFixed(1) + ' m)</p>';
+        const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
+        if (P4 && P41) {
+            const dx = P4.X - P41.X, dy = P4.Y - P41.Y, ds = Math.sqrt(dx*dx + dy*dy);
+            html += '<p><strong>Tekrar Olcusu (P.4 &harr; P.41):</strong> Konum farki ' + (ds*1000).toFixed(1) + ' mm &mdash; ';
+            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK olcum kalitesi cok iyi (&lt;2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK olcum kalitesi iyi (&lt;5 cm)</span>' : '<span style="color:var(--danger);">Tekrar olcusunde sapma var</span>') + '</p>';
+        }
+        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* RTK GPS olcumleri, YLDZ sabit istasyonundan alinan duzeltmelerle gerceklestirilmistir. Parsel kose noktalari ve detay noktalari kutupsal alim yontemiyle ve RTK GPS yontemiyle olculmustur.</p>';
+        html += '</div>';
+        el.innerHTML = html;
+    }
 }
 
 /* ═══ BOOT ═══ */
@@ -737,7 +1892,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p = particles[i];
                 
                 // Geoid macro-deformations (creates continents/valleys)
-                const deformation = 8 * Math.sin(p.theta * 3 + time * 2) * Math.cos(p.phi * 4 - time);
+                const deformation = 32 * Math.sin(p.theta * 3 + time * 2) * Math.cos(p.phi * 4 - time);
                 const r = (p.rBase + deformation) * breath;
                 
                 // Spherical to Cartesian coordinates
@@ -754,17 +1909,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 let y2 = x1 * Math.sin(rotZ) + y * Math.cos(rotZ);
                 
                 // Simple 3D perspective projection
-                const fov = 400;
+                const fov = 1600;
                 const scale = fov / (fov + z1);
                 const projX = canvas.width / 2 + x2 * scale;
                 const projY = canvas.height / 2 + y2 * scale;
                 
                 // Depth fading (far particles are darker/smaller)
-                const alpha = Math.min(1, Math.max(0.05, (120 - z1) / 240));
+                const alpha = Math.min(1, Math.max(0.05, (480 - z1) / 960));
                 
                 if (scale > 0 && alpha > 0.05) {
                     ctx.beginPath();
-                    ctx.arc(projX, projY, 0.9 * scale, 0, Math.PI * 2);
+                    ctx.arc(projX, projY, 3.6 * scale, 0, Math.PI * 2);
                     ctx.fillStyle = `rgba(212, 172, 130, ${alpha * 1.5})`; // --accent-light
                     ctx.fill();
                 }
@@ -776,6 +1931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- End of Geoid Logic ---
 
     window.FCU = new App();
+    window.app = window.FCU;        // Logo onclick & gelecek modüller için kısa alias
     
     // Initialize tsParticles with "breathing" globe-like interactive network
     if (window.tsParticles) {
@@ -808,7 +1964,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     direction: "none",
                     random: true,
                     straight: false,
-                    outModes: { default: "bounce" }
+                    outModes: { 
+                        default: "bounce",
+                        top: "bounce",
+                        bottom: "bounce",
+                        left: "bounce",
+                        right: "bounce"
+                    }
                 }
             },
             interactivity: {

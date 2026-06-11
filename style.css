@@ -888,32 +888,82 @@ body::before {
     .map-wrapper { height: 400px; }
     .db-grid { grid-template-columns: 1fr; }
     .formulas-grid { grid-template-columns: 1fr; }
-    .header-inner { padding: 0 1rem; }
+    .header-inner { padding: 0 1rem; gap: 0.5rem; }
+    /* backdrop-filter mobile'da position:fixed child'lar için containing block
+       oluşturur — outer-nav'ın viewport'a göre yayılması için kapatılır */
+    .glass-header { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(43, 37, 35, 0.95); }
     .logo-sub { display: none; }
-    
+    .logo-title { font-size: 0.78rem; }
+
     .mobile-menu-btn {
         display: block;
     }
-    
-    .header-nav {
-        position: absolute;
-        top: var(--header-h);
-        left: 0;
-        right: 0;
-        background: rgba(26, 20, 18, 0.95);
+
+    /* Outer nav → mobile drawer (hidden by default, shown via .nav-open).
+       !important needed because default .outer-nav block is defined later
+       in the file and would otherwise override under cascading. */
+    .outer-nav {
+        position: fixed !important;
+        top: var(--header-h) !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+        background: rgba(26, 20, 18, 0.97);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
         flex-direction: column;
-        padding: 1rem;
-        gap: 0.5rem;
+        flex-wrap: nowrap;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding: 0.8rem;
+        gap: 0.4rem;
+        border: none;
         border-bottom: 1px solid var(--glass-border);
         box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        display: none; /* hidden by default */
+        border-radius: 0;
+        display: none !important;
+        z-index: 95;
+    }
+    .outer-nav.nav-open {
+        display: flex !important;
+        animation: slideDown 0.25s ease forwards;
     }
 
-    .header-nav.nav-open {
-        display: flex;
-        animation: slideDown 0.3s ease forwards;
+    /* Logo'yu mobile'da tek satır kompakt tut */
+    .logo-group { gap: 0.5rem; flex-shrink: 0; min-width: 0; }
+    .logo-icon svg { width: 22px; height: 22px; }
+    .logo-text { max-width: calc(100vw - 180px); overflow: hidden; }
+    .logo-title { font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .logo-title em { font-style: normal; }
+    /* Inner nav bar — sticky to header bottom on mobile, also drawer-attached
+       when outer drawer is open (sits below the outer drawer). */
+    .inner-nav-bar { padding: 0; }
+    .inner-nav-inner {
+        padding: 4px 0.6rem;
+    }
+
+    /* Outer drawer butonları: tam satır, sol hizalı */
+    .outer-nav .nav-btn {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.03);
+        font-size: 0.85rem;
+        white-space: normal;
+    }
+    .outer-nav .nav-btn svg { width: 16px; height: 16px; }
+
+    /* Inner nav (scrollable strip): butonlar kompakt, akış soldan-sağa */
+    .inner-nav-inner .nav-btn {
+        flex-shrink: 0;
+        padding: 6px 10px;
+        font-size: 0.74rem;
+        background: rgba(255, 255, 255, 0.03);
+        white-space: nowrap;
     }
 
     @keyframes slideDown {
@@ -923,10 +973,619 @@ body::before {
 
     .nav-indicator { display: none; }
 
-    .nav-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 14px 16px;
-        background: rgba(255, 255, 255, 0.03);
-    }
+    /* U3 page-grid içindeki harita yüksekliği daralt */
+    #geoMapU3 { height: 360px; }
+
+    /* Calc grid mobile'da tek kolon */
+    .calc-grid { grid-template-columns: 1fr; }
+    .calc-card .calc-inputs { grid-template-columns: 1fr; }
+
+    /* U3 sabitler grid mobile'da tek kolon */
+    .u3-constants-grid { grid-template-columns: 1fr; }
+
+    /* Sağ üst status'u kompakt yap */
+    .header-status .status-text { display: none; }
+    .header-inner img[alt="YTU Logo"] { height: 28px !important; }
 }
+
+/* ═══════════════════════════════════════════════
+   TWO-TIER NAVIGATION (Outer = Uygulama, Inner = Subpage)
+   ═══════════════════════════════════════════════ */
+:root { --inner-nav-h: 44px; }
+
+.outer-nav {
+    display: flex;
+    gap: 0.2rem;
+    background: rgba(0, 0, 0, 0.22);
+    padding: 4px;
+    border-radius: 10px;
+    position: relative;
+    border: 1px solid var(--glass-border);
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0 1.2rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+}
+.outer-nav::-webkit-scrollbar { height: 4px; }
+.outer-nav::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+/* Outer butonlarını biraz daha kompakt tut (7 sekme sığsın) */
+.outer-nav .nav-btn {
+    padding: 6px 11px;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+.outer-nav .nav-btn svg { width: 14px; height: 14px; }
+
+.inner-nav-bar {
+    position: sticky;
+    top: var(--header-h);
+    z-index: 80;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    background: rgba(43, 37, 35, 0.55);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: opacity 0.2s, transform 0.2s, max-height 0.25s;
+}
+.inner-nav-bar.hidden {
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    max-height: 0;
+    overflow: hidden;
+    border-bottom: none;
+    box-shadow: none;
+}
+.inner-nav-bar:not(.hidden) { max-height: var(--inner-nav-h); }
+
+.inner-nav-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    gap: 0.25rem;
+    padding: 6px 1.5rem;
+    position: relative;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+    align-items: center;
+    height: var(--inner-nav-h);
+}
+.inner-nav-inner::-webkit-scrollbar { height: 4px; }
+.inner-nav-inner::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 2px; }
+
+/* Inner nav butonları biraz daha kompakt */
+.inner-nav-inner .nav-btn {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+/* Sayfaların inner nav görünür olduğunda biraz daha aşağıdan başlaması */
+body:has(.inner-nav-bar:not(.hidden)) main.page { scroll-margin-top: calc(var(--header-h) + var(--inner-nav-h)); }
+
+/* "Yakında" stub sayfaları için merkezleme */
+.empty-hint {
+    color: var(--text-3);
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* ═══════════════════════════════════════════════
+   THEMED SELECT (Custom Combobox)
+   ═══════════════════════════════════════════════ */
+.ts-root {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+.ts-trigger {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    text-align: left;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.ts-trigger:hover { border-color: var(--mocha-400); }
+.ts-root.open .ts-trigger,
+.ts-trigger:focus,
+.ts-root:focus .ts-trigger {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent-glow);
+    outline: none;
+}
+.ts-label {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ts-label.ts-placeholder { color: var(--text-3); font-style: italic; }
+.ts-chevron {
+    flex-shrink: 0;
+    color: var(--accent);
+    transition: transform 0.2s;
+}
+.ts-root.open .ts-chevron { transform: rotate(180deg); }
+
+.ts-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(43, 37, 35, 0.96);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    padding: 4px;
+    animation: ts-popover-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ts-popover-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.ts-filter {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.45rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+    margin-bottom: 4px;
+}
+.ts-filter:focus { border-color: var(--accent); }
+.ts-options {
+    max-height: 280px;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent) transparent;
+}
+.ts-options::-webkit-scrollbar { width: 8px; }
+.ts-options::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+.ts-options::-webkit-scrollbar-track { background: transparent; }
+
+.ts-option {
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    transition: background 0.1s, color 0.1s;
+}
+.ts-option .ts-opt-sub { font-size: 0.72rem; color: var(--text-3); }
+.ts-option:hover { background: rgba(196, 149, 106, 0.1); color: var(--text-1); }
+.ts-option.highlighted {
+    background: rgba(196, 149, 106, 0.18);
+    color: var(--text-1);
+}
+.ts-option.selected {
+    color: var(--accent);
+    font-weight: 600;
+}
+.ts-option.selected::after {
+    content: '✓';
+    margin-left: auto;
+    color: var(--accent);
+}
+.ts-option.disabled { opacity: 0.4; cursor: not-allowed; }
+.ts-empty {
+    padding: 0.6rem 0.7rem;
+    color: var(--text-3);
+    font-style: italic;
+    font-size: 0.82rem;
+    list-style: none;
+}
+
+/* ═══════════════════════════════════════════════
+   CALCULATOR HUB GRID (S4'te kullanılacak)
+   ═══════════════════════════════════════════════ */
+.calc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+.calc-card {
+    padding: 1.2rem 1.4rem;
+}
+.calc-card h3 {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.6rem;
+}
+.calc-card .calc-formula { margin: 0.6rem 0; }
+.calc-card .calc-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin: 0.7rem 0;
+}
+.calc-card .calc-inputs label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.7rem;
+    color: var(--text-3);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.calc-card .calc-inputs input,
+.calc-card .calc-inputs select,
+.calc-card .calc-inputs textarea {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+}
+.calc-card .calc-inputs input:focus,
+.calc-card .calc-inputs textarea:focus,
+.calc-card .calc-inputs select:focus { border-color: var(--accent); }
+.calc-card .calc-inputs textarea { grid-column: 1 / -1; min-height: 60px; resize: vertical; }
+.calc-card .calc-inputs label.full { grid-column: 1 / -1; }
+.calc-card .calc-results {
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--glass-border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-1);
+    line-height: 1.6;
+    min-height: 1.6em;
+}
+.calc-card .calc-results .res-key { color: var(--text-3); }
+.calc-card .calc-results .res-val { color: var(--accent-light); font-weight: 500; }
+.calc-card .calc-warn {
+    color: var(--danger);
+    font-size: 0.78rem;
+    margin-top: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    background: rgba(199, 93, 93, 0.08);
+    border-left: 2px solid var(--danger);
+    border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   UYGULAMA-3 — Silsile Düşey Açı Bileşenleri
+   ═══════════════════════════════════════════════ */
+#geoMapU3 {
+    width: 100%;
+    height: 520px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--mocha-800);
+}
+
+.u3-select {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.u3-select:focus { border-color: var(--accent); }
+.u3-select option { background: var(--mocha-800); color: var(--text-1); }
+
+.u3-info {
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 2px solid var(--accent);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text-2);
+    line-height: 1.5;
+}
+
+.u3-mosques-list {
+    max-height: 240px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.u3-mosque-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.65rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 0.82rem;
+    color: var(--text-2);
+}
+.u3-mosque-item:hover {
+    background: rgba(196, 149, 106, 0.08);
+    border-color: var(--glass-border);
+    color: var(--text-1);
+}
+.u3-mosque-item.selected {
+    background: rgba(196, 149, 106, 0.18);
+    border-color: var(--accent);
+    color: var(--text-1);
+}
+.u3-mosque-item .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--mocha-900);
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-right: 0.5rem;
+}
+.u3-mosque-item .mosque-meta {
+    color: var(--text-3);
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.u3-constants-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+.u3-constants-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    color: var(--text-3);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.u3-constants-grid input {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+}
+.u3-constants-grid input:focus { border-color: var(--accent); }
+
+.u3-obs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+}
+.u3-obs-table th, .u3-obs-table td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+.u3-obs-table th {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: rgba(0, 0, 0, 0.25);
+}
+.u3-obs-table td.target-cell {
+    color: var(--text-1);
+    font-weight: 500;
+}
+.u3-obs-table input[type="number"] {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    outline: none;
+}
+.u3-obs-table input[type="number"]:focus { border-color: var(--accent); }
+.u3-obs-table input.collimation-warn { border-color: var(--danger); background: rgba(199, 93, 93, 0.08); }
+.u3-obs-table input.collimation-ok   { border-color: var(--success); }
+
+.u3-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.8rem;
+    margin: 1rem 0;
+}
+.u3-result-card {
+    padding: 0.9rem 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+}
+.u3-result-card .label {
+    font-size: 0.7rem;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.3rem;
+}
+.u3-result-card .value {
+    font-size: 1.1rem;
+    color: var(--text-1);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+}
+.u3-result-card .sub {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    margin-top: 0.2rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.u3-mosque-marker {
+    background: var(--accent);
+    color: var(--mocha-900);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.75rem;
+    box-shadow: 0 0 0 2px var(--mocha-900), 0 0 12px var(--accent-glow);
+    border: none;
+}
+.u3-mosque-marker.numbered {
+    background: var(--success);
+    color: var(--mocha-900);
+    box-shadow: 0 0 0 2px var(--mocha-900), 0 0 18px rgba(107, 175, 123, 0.6);
+}
+
+/* Seçilmemiş cami nokta marker'ları (yoğunluğu azaltır) */
+.u3-mosque-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.7;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.6);
+    transition: transform 0.15s, opacity 0.15s;
+}
+.u3-mosque-dot:hover {
+    transform: scale(1.6);
+    opacity: 1;
+}
+.u3-mosque-dot.medium {
+    width: 12px; height: 12px;
+    background: var(--accent-light);
+    opacity: 0.85;
+}
+
+/* Markercluster badge */
+.u3-cluster-badge {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--mocha-700);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.78rem;
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+.leaflet-marker-icon.marker-cluster { background: transparent !important; }
+.leaflet-marker-icon.marker-cluster div { background: transparent !important; }
+
+/* Yakındaki N camiyi göster slider'ı */
+.u3-nearby-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.7rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--glass-border);
+    font-size: 0.72rem;
+    color: var(--text-3);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.u3-nearby-label strong { color: var(--accent); font-size: 0.85rem; }
+.u3-nearby-label input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%; height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    outline: none;
+}
+.u3-nearby-label input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+.u3-nearby-label input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+.u3-station-marker {
+    background: var(--danger);
+    color: var(--text-1);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: 700;
+    font-size: 0.75rem;
+    box-shadow: 0 0 0 2px var(--mocha-900), 0 0 12px var(--danger-glow);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+}
+
+.u3-loading {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--glass-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: u3-spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.4rem;
+}
+@keyframes u3-spin { to { transform: rotate(360deg); } }
