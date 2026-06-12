@@ -15,6 +15,7 @@ import { CalcHubController } from './calculators.js';
 
 import { synthU4, studentModifiers } from './synth_data.js';
 import { computeU4, compareCoordinates as compareCoords4 } from './u4_engine.js';
+import { u4Meta, u4Observations, u4ErrorAnalysis, heightComparison } from './data_u4_real.js';
 import { tm30ToWGS84Approx } from './u6_engine.js';
 import { levelingData as U5_REAL, rsBenchmarks } from './data_u5_real.js';
 import { trigonometricDH, compareGeoVsTrig } from './u5_engine.js';
@@ -119,62 +120,6 @@ function svgIcon(paths) {
 }
 
 const TaskRegistry = [
-    {
-        id: 'u1', label: 'Uygulama-1',
-        icon: () => svgIcon([
-            { attrs: { d: 'M12 2L2 7l10 5 10-5-10-5z' } },
-            { attrs: { d: 'M2 17l10 5 10-5' } },
-            { attrs: { d: 'M2 12l10 5 10-5' } }
-        ]),
-        subpages: [
-            { id: 'u1Intro', label: 'İş Güvenliği', pageElementId: 'pageU1Intro' },
-            { id: 'u1Sketch', label: 'İstikşaf', pageElementId: 'pageU1Sketch' }
-        ],
-        onSubpageActivate(subId, app) {
-            if (subId === 'u1Sketch' && app.db) {
-                setTimeout(() => {
-                    const el = document.getElementById('u1Map');
-                    if (!el || el._mapInit) return;
-                    el._mapInit = true;
-                    const map = L.map('u1Map', { zoomControl: true }).setView([41.0241, 28.8868], 16);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(map);
-                    // Add network points
-                    const chain = [];
-                    const coords = app.db.coords;
-                    const pointIds = [38, 40, 41, 43, 45, 49];
-                    // AN14 is special
-                    const an14Coord = coords[14];
-                    const seenIds = new Set();
-                    for (const pid of pointIds) {
-                        const pt = coords[pid];
-                        if (pt && !seenIds.has(pid)) {
-                            seenIds.add(pid);
-                            const ll = toLatLng(pt.Y, pt.X);
-                            chain.push({ id: 'N' + pid, lat: ll[0], lon: ll[1], h: pt.h, isRS: (pid === 38 || pid === 49) });
-                        }
-                    }
-                    if (an14Coord) {
-                        const ll = toLatLng(an14Coord.Y, an14Coord.X);
-                        chain.push({ id: 'AN14', lat: ll[0], lon: ll[1], h: an14Coord.h, isRS: false });
-                    }
-                    // Draw markers and polyline
-                    const latlngs = [];
-                    for (const c of chain) {
-                        latlngs.push([c.lat, c.lon]);
-                        L.circleMarker([c.lat, c.lon], {
-                            radius: c.isRS ? 8 : 6,
-                            fillColor: c.isRS ? '#2196f3' : '#4caf50',
-                            color: '#fff', weight: 2, fillOpacity: 0.9
-                        }).bindPopup('<b>' + c.id + '</b>' + (c.h ? '<br>h: ' + c.h.toFixed(3) + ' m' : '') + (c.isRS ? '<br><em>RS Sabit Nokta</em>' : '')).addTo(map);
-                    }
-                    if (latlngs.length) {
-                        L.polyline(latlngs, { color: '#4caf50', weight: 3, dashArray: '6,6' }).addTo(map);
-                        map.fitBounds(latlngs, { padding: [40, 40] });
-                    }
-                }, 400);
-            }
-        }
-    },
     {
         id: 'u2', label: 'Uygulama-2',
         icon: () => svgIcon([
@@ -1680,54 +1625,95 @@ class U4Controller {
         const edges = this.synthData.edges;
         const stations = this.synthData.stations;
         let totalDist = edges.reduce((s, e) => s + e.horizontalDist, 0);
-        let nStations = stations.length;
         const K_atm = 1 + XX/10000;
         let html = '<div class="result-section">';
-        
-        // Header
-        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-4 Raporu: Dayali Poligon Hesabi</h3>';
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-bottom:0.8rem;">YTU Davutpasa Kampusu — N.43 noktasindan N.49 noktasina dayali poligon olcumu yapilmistir. Olcum sirasinda Total Station, 2 adet reflektor, reflektor jalonlari ve serit metre kullanilmistir.</p>';
-        
-        // Student + traverse info
+
+        // ── 1. Başlık + Açıklama ──
+        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-4 Raporu — Poligon Ölçüm ve Hesabı</h3>';
+        html += '<h4 style="font-size:0.85rem;margin:0.6rem 0 0.3rem;color:var(--text-2);">1. Açıklama</h4>';
+        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
+             + 'YTÜ Davutpaşa Kampüsü\'nde ' + u4Meta.route[0] + ' noktasından ' + u4Meta.route[u4Meta.route.length-1]
+             + ' noktasına dayalı poligon ölçümü yapılmıştır. Güzergâh ' + u4Meta.route.join(' → ') + ' şeklindedir; '
+             + 'ölçüler başlangıçta ' + u4Meta.orientStart + ' noktasına, bitişte ' + u4Meta.orientEnd + ' noktasına dayandırılmıştır. '
+             + 'Ölçüm sırasında ' + u4Meta.equipment + ' kullanılmıştır. Her istasyonda iki yarım silsile yatay doğrultu okuması yapılmış, '
+             + 'eğik mesafelerin yataya indirgenmesi için düşey açılar da ölçülmüştür. Poligon ölçümleri trigonometrik nivelman ölçümleriyle birlikte yürütülmüştür.</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
+             + 'Atmosferik düzeltme için sıcaklık ' + u4Meta.tempC + '°C, basınç ' + u4Meta.pressureHPa + ' hPa olarak ölçülmüştür. '
+             + 'Yönerge gereği eğik mesafeler 1.00XX katsayısıyla, yatay doğrultular +0.00XX gon ile kişiselleştirilmiştir (XX = ' + XX + ').</p>';
+
+        // ── Öğrenci / ölçüm kimliği ──
         html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.8rem;">';
-        html += '<span><strong>Ogrenci:</strong> 24046607 (Ertugrul)</span>';
+        html += '<span><strong>Öğrenci:</strong> 24046607 (Ertuğrul)</span>';
         html += '<span><strong>Nokta:</strong> 48 | <strong>XX:</strong> ' + XX + '</span>';
-        html += '<span><strong>Guzergah:</strong> ' + path.join(' → ') + '</span>';
-        html += '<span><strong>Istasyon:</strong> ' + nStations + ' adet</span>';
-        html += '<span><strong>Toplam Mesafe:</strong> ' + totalDist.toFixed(2) + ' m</span>';
+        html += '<span><strong>Arazi güzergâhı:</strong> ' + u4Meta.route.join(' → ') + '</span>';
+        html += '<span><strong>İstasyon:</strong> ' + u4ErrorAnalysis.nStations + ' adet</span>';
+        html += '<span><strong>Reflektör yüksekliği:</strong> ' + u4Meta.reflectorH.toFixed(2) + ' m</span>';
         html += '</div>';
-        
-        // Atmospheric + reduction info
+
+        // ── İndirgeme parametreleri ──
         html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.5rem 0.8rem;margin-bottom:0.8rem;font-size:0.78rem;border-left:3px solid var(--accent);">';
-        html += '<strong>Indirgeme Parametreleri:</strong><br>';
-        html += 'Atmosferik duzeltme: K<sub>atm</sub> = ' + K_atm.toFixed(6) + ' (1. Hiz duzeltmesi, XX=' + XX + ') | ';
+        html += '<strong>İndirgeme Parametreleri:</strong><br>';
+        html += 'Atmosferik düzeltme: K<sub>atm</sub> = ' + K_atm.toFixed(6) + ' (1. hız düzeltmesi, XX=' + XX + ') | ';
         html += 'n<sub>0</sub> = 1.000290, &lambda;<sub>M</sub> = 0.850 µm, &alpha; = 0.003661<br>';
         html += 'Projeksiyon indirgemesi: S<sub>proj</sub> = S<sub>yatay</sub> × R/(R+H<sub>ort</sub>), R = 6371 km<br>';
-        html += 'Sicaklik: ~22°C, Basinc: ~1007 hPa (YTU Davutpasa, Ekim 2022)';
+        html += 'Sıcaklık: ' + u4Meta.tempC + '°C, Basınç: ' + u4Meta.pressureHPa + ' hPa (arazide ölçülen değerler)';
         html += '</div>';
-        
-        // Station assignment table
-        html += '<p style="font-size:0.78rem;margin-bottom:0.3rem;"><strong>Olcu Dagilimi:</strong> Her ogrenci kendi noktasinda iki yarim silsile yatay dogrultu ve dusey aci olcumu yapmistir. Kirilma acilari hesaplanmis, kenarlar indirgenmistir.</p>';
-        
-        // Results
+
+        // ── 2. Ölçüler: gerçek Tablo-1 (katlanabilir) ──
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">2. Ölçüler — Tablo-1: Arazi Ölçü Çizelgesi</h4>';
+        html += '<details style="margin-bottom:0.6rem;"><summary style="cursor:pointer;font-size:0.78rem;color:var(--accent);">'
+             + u4Observations.length + ' doğrultu okuması, ' + u4ErrorAnalysis.nStations + ' istasyon (iki yarım silsile) — tabloyu aç/kapat</summary>';
+        html += '<div style="overflow-x:auto;margin-top:0.4rem;"><table class="u3-obs-table" style="font-size:0.72rem;">';
+        html += '<thead><tr><th>DN (i, m)</th><th>Seri</th><th>BN</th><th>Yatay D. (gon)</th><th>Düşey D. (gon)</th><th>Eğik M. (m)</th><th>Yatay M. (m)</th></tr></thead><tbody>';
+        let prevSt = null;
+        for (const o of u4Observations) {
+            const stCell = (o.st !== prevSt) ? '<b>' + o.st + '</b> (' + o.i.toFixed(3) + ')' : '';
+            prevSt = o.st;
+            const warn = o.flag ? ' style="color:var(--danger);" title="' + o.flag + '"' : '';
+            html += '<tr><td>' + stCell + '</td><td>' + o.set + '</td><td>' + o.bn + '</td><td' + warn + '>' + o.hz.toFixed(4) + '</td><td>' + o.v.toFixed(4) + '</td><td>' + o.sd.toFixed(3) + '</td><td' + warn + '>' + o.hd.toFixed(3) + '</td></tr>';
+        }
+        html += '</tbody></table></div>';
+        html += '<p style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem;">Kırmızı değerler veri kalitesi açısından şüpheli okumalardır (aşağıdaki hata analizine bakınız). Reflektör yüksekliği t = 1.60 m sabittir.</p>';
+        html += '</details>';
+
+        // ── 3. Hata analizi (gerçek ölçü) ──
+        const ea = u4ErrorAnalysis;
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">3. Hesaplamalar — Açı Kapanma Kontrolü (arazi verisi)</h4>';
+        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.6rem;font-size:0.8rem;border-left:3px solid var(--danger);">';
+        html += 'Başlangıç açıklık açısı &alpha;<sub>0</sub> = ' + ea.alpha0.toFixed(4) + ' gon, kapanış açıklık açısı &alpha;<sub>son</sub> = ' + ea.alphaEnd.toFixed(4) + ' gon.<br>';
+        html += 'f<sub>&beta;</sub> = &alpha;<sub>son</sub> − (&alpha;<sub>0</sub> + [&beta;] &mp; n·200) = <b style="color:var(--danger);">' + ea.fBetaGon.toFixed(4) + ' gon</b><br>';
+        html += 'Tolerans: F<sub>&beta;</sub> = 1.5<sup>c</sup>·&radic;n = 1.5·&radic;' + ea.nStations + ' = 4.5<sup>c</sup> = ' + ea.FBetaGon.toFixed(3) + ' gon<br>';
+        html += '<b>' + ea.fBetaGon.toFixed(4) + ' gon &gt; ' + ea.FBetaGon.toFixed(3) + ' gon → açı kapanması tolerans dışıdır; ölçü hatalıdır.</b><br>';
+        html += '<span style="font-size:0.75rem;color:var(--text-3);">Bu nedenle arazi verisiyle koordinat hesabına devam edilememiştir. Şüpheli okumalar: P2 istasyonunda 2. yarım silsiledeki P3 doğrultusu (140.0020 gon, 1. seriyle uyumsuz) ve P4→P3 yatay mesafesi (40.000 m, eğik mesafe 40.080 m ile tutarsız). Ders çıkarımı: yarım silsileler arasındaki farklar arazide kontrol edilmeli, tolerans aşımı tespit edilir edilmez ilgili istasyon yeniden ölçülmelidir.</span>';
+        html += '</div>';
+
+        // ── 4. Yöntem gösterimi: bilinen koordinatlı güzergâhta Bowditch ──
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">4. Hesap Yönteminin Gösterimi — Bowditch Dengelemesi</h4>';
+        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.4rem;">Arazi ölçüsü tolerans dışı kaldığından hesap adımları, koordinatları bilinen '
+             + path.join(' → ') + ' güzergâhı üzerinde örnek verilerle gösterilmiştir (toplam ' + totalDist.toFixed(2) + ' m).</p>';
         try {
             const result = computeU4(coords, path, edges, stations, XX);
             const c = result.closure;
-            
-            html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin:0.8rem 0;font-size:0.82rem;">';
-            html += '<strong style="color:var(--accent);">Dengeleme Sonuclari (Bowditch):</strong><br>';
+            html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin:0.4rem 0;font-size:0.82rem;">';
+            html += '<strong style="color:var(--accent);">Dengeleme Sonuçları (Bowditch):</strong><br>';
             html += 'Kapanma: f<sub>x</sub> = ' + c.fx.toFixed(4) + ' m, f<sub>y</sub> = ' + c.fy.toFixed(4) + ' m, f<sub>s</sub> = ' + c.fs.toFixed(4) + ' m<br>';
-            html += 'Bagil hata: 1/' + Math.round(1/c.relErr) + ' — ';
-            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas olcum (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Dusuk hassasiyet — olcu tekrari onerilir</span>');
+            html += 'Bağıl hata: 1/' + Math.round(1/c.relErr) + ' — ';
+            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas ölçüm (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Düşük hassasiyet — ölçü tekrarı önerilir</span>');
             html += '</div>';
-            
             const comp = compareCoords4(coords, result.adjusted, path);
             const maxDY = Math.max(...comp.map(r => Math.abs(r.dY)));
             const maxDX = Math.max(...comp.map(r => Math.abs(r.dX)));
-            html += '<p style="font-size:0.8rem;"><strong>Maksimum Koordinat Sapmasi:</strong> dY<sub>max</sub> = ' + (maxDY*1000).toFixed(1) + ' mm, dX<sub>max</sub> = ' + (maxDX*1000).toFixed(1) + ' mm</p>';
-        } catch(e) { html += '<p style="color:var(--danger);">Dengeleme hesaplanamadi: ' + e.message + '</p>'; }
-        
-        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">* Bowditch (pusula kurali) yontemiyle dengeleme yapilmistir. Kapanma hatalari kenar uzunluklariyla orantili olarak dagitilmistir. Poligon noktalarinin roper krokileri ayrica teslim edilmelidir.</p>';
+            html += '<p style="font-size:0.8rem;"><strong>Maksimum Koordinat Sapması:</strong> dY<sub>max</sub> = ' + (maxDY*1000).toFixed(1) + ' mm, dX<sub>max</sub> = ' + (maxDX*1000).toFixed(1) + ' mm</p>';
+        } catch(e) { html += '<p style="color:var(--danger);">Dengeleme hesaplanamadı: ' + e.message + '</p>'; }
+
+        // ── 5. Teslim listesi + sonuç ──
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">5. Teslim Edilecekler (Yönerge)</h4>';
+        html += '<ul style="font-size:0.78rem;color:var(--text-2);line-height:1.6;padding-left:1.2rem;margin-bottom:0.6rem;">'
+             + '<li>Röper krokileri</li><li>Kırılma açıları ölçüm ve hesap çizelgesi</li>'
+             + '<li>Kenar ölçüm ve indirgeme çizelgesi</li><li>Poligon hesabı</li></ul>';
+        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">'
+             + '* Bowditch (pusula kuralı) yönteminde kapanma hataları kenar uzunluklarıyla orantılı dağıtılır. '
+             + 'Arazi verisi kaynağı: grup ölçü çizelgesi (Tablo-1). Açı kapanma analizi el yazısı poligon hesabı çizelgesinden (Şekil-2) alınmıştır.</p>';
         html += '</div>';
         el.innerHTML = html;
     }
@@ -1975,56 +1961,80 @@ class U6Controller {
     renderReport(data, groups) {
         const el = document.getElementById('u6ReportContent'); if (!el) return;
         let html = '<div class="result-section">';
-        
-        // Header
-        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-6 Raporu: Uc Boyutlu Konumlama (RTK GPS)</h3>';
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-bottom:0.8rem;">YTU Davutpasa Kampusu\'nde RTK GNSS yontemi ile olcum yapilmistir. Olcum ile poligon noktalarinin koordinatlari ve poligon hattinin yakinindaki bir yesil alanin kose noktalari ile icerisindeki detay ogelerinin koordinatlari elde edilmistir. Olcum sirasinda serit metre, GPS ve GPS jalonu kullanilmistir.</p>';
-        
-        // Student + measurement info
+
+        // ── 1. Başlık + Açıklama ──
+        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-6 Raporu — Üç Boyutlu Konumlama (RTK GNSS)</h3>';
+        html += '<h4 style="font-size:0.85rem;margin:0.6rem 0 0.3rem;color:var(--text-2);">1. Açıklama</h4>';
+        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
+             + 'YTÜ Davutpaşa Kampüsü\'nde RTK GNSS yöntemiyle ölçüm yapılmıştır. Ölçümle poligon noktalarının koordinatları ile '
+             + 'poligon hattının yakınındaki bir yeşil alanın köşe noktaları ve içerisindeki detay öğelerinin (elektrik direği, ağaçlar) '
+             + 'koordinatları elde edilmiştir. Ölçüm sırasında şerit metre, GPS alıcısı ve GPS jalonu kullanılmış; '
+             + 'düzeltmeler YLDZ sabit GNSS istasyonundan (CORS) alınmıştır.</p>';
+        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
+             + '<strong>Saha gözlemi:</strong> P.3 noktası ağacın altında kaldığından GPS ile ölçülememiştir. Bu durum, GNSS yönteminin '
+             + 'açık gökyüzü görüşüne bağımlılığını gösteren somut bir örnektir: yoğun yaprak örtüsü uydu sinyallerini zayıflatır ve '
+             + 'sabit (fix) çözüm elde edilemez. Bu tür noktalar klasik (kutupsal) alımla tamamlanmalıdır.</p>';
+
+        // ── Öğrenci / ölçüm kimliği ──
         html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.8rem;">';
-        html += '<span><strong>Ogrenci:</strong> 24046607 (Ertugrul)</span>';
+        html += '<span><strong>Öğrenci:</strong> 24046607 (Ertuğrul)</span>';
         html += '<span><strong>Nokta:</strong> 48</span>';
-        html += '<span><strong>CORS:</strong> YLDZ (Yildiz Sabit GNSS)</span>';
+        html += '<span><strong>CORS:</strong> YLDZ (Yıldız Sabit GNSS)</span>';
         html += '<span><strong>Datum:</strong> ITRF96 / TUREF TM30</span>';
         html += '<span><strong>Toplam Nokta:</strong> ' + data.length + ' adet</span>';
         html += '</div>';
-        
+
         // Point distribution
         let breakdown = [];
         for (const [type, pts] of Object.entries(groups)) {
-            breakdown.push(pts.length + ' ' + (type === 'parcel' ? 'parsel kosesi' : type === 'detail' ? 'detay' : type === 'pole' ? 'direk' : type === 'tree' ? 'agac' : type === 'control' ? 'kontrol' : type === 'parcel_repeat' ? 'parsel (tekrar)' : type));
+            breakdown.push(pts.length + ' ' + (type === 'parcel' ? 'parsel köşesi' : type === 'detail' ? 'detay' : type === 'pole' ? 'direk' : type === 'tree' ? 'ağaç' : type === 'control' ? 'kontrol' : type === 'parcel_repeat' ? 'parsel (tekrar)' : type));
         }
-        html += '<p style="font-size:0.8rem;"><strong>Nokta Dagilimi:</strong> ' + breakdown.join(', ') + '</p>';
-        
-        // Jeoit height calculation (detailed derivation)
+        html += '<p style="font-size:0.8rem;"><strong>Nokta Dağılımı:</strong> ' + breakdown.join(', ') + '. Detay noktalarından 108-DIREK elektrik direğini, 109-AGAC2 ile 110-AGAC yeşil alandaki iki ağacı göstermektedir.</p>';
+
+        // ── 2. Jeoit yüksekliği hesabı ──
         const N38pt = data.find(d => d.id === 'N.38');
         const hN38 = N38pt ? N38pt.h_ell : 110.192;
         const HN38_known = 73.294;  // from RS benchmark
-        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin:0.8rem 0;font-size:0.8rem;border-left:3px solid var(--accent);">';
-        html += '<strong>Jeoit Yuksekligi Hesabi (N):</strong><br>';
-        html += 'N.38 noktasinin olculen elipsoid yuksekliginden (h) bilinen ortometrik yuksekligi (H) cikarilarak ortalama jeoit yuksekligi hesaplanmistir.<br>';
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">2. Jeoit Yüksekliği ve Ortometrik Yükseklik Hesabı</h4>';
+        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin:0.4rem 0 0.8rem;font-size:0.8rem;border-left:3px solid var(--accent);">';
+        html += 'N.38 noktasının ölçülen elipsoid yüksekliğinden (h), bilinen ortometrik yüksekliği (H) çıkarılarak ortalama jeoit yüksekliği (N) hesaplanmıştır.<br>';
         html += '<span style="font-family:JetBrains Mono,monospace;font-size:0.8rem;">N = h<sub>N38</sub> − H<sub>N38</sub> = ' + hN38.toFixed(3) + ' − ' + HN38_known.toFixed(3) + ' = <b style="color:var(--accent);">' + N_GEOID.toFixed(3) + ' m</b></span><br>';
-        html += '<span style="font-size:0.72rem;color:var(--text-3);">EGM96 jeoit modeli, Davutpasa bolgesi. Tum noktalarin ortometrik yukseklikleri: H = h<sub>ell</sub> − N</span>';
+        html += '<span style="font-size:0.72rem;color:var(--text-3);">Elde edilen jeoit yüksekliğiyle bütün noktaların ortometrik yükseklikleri hesaplanmıştır: H = h<sub>ell</sub> − N (Davutpaşa bölgesi).</span>';
         html += '</div>';
-        
+
         // Repeat measurement check
         const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
         if (P4 && P41) {
             const dx = P4.X - P41.X, dy = P4.Y - P41.Y, ds = Math.sqrt(dx*dx + dy*dy);
-            html += '<p style="font-size:0.8rem;"><strong>Tekrar Olcusu Kontrolu (P.4 ↔ P.41):</strong><br>';
-            html += 'Konum farki: ' + (ds*1000).toFixed(1) + ' mm — ';
-            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK tekrarliligi cok iyi (<2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK tekrarliligi kabul edilebilir (<5 cm)</span>' : '<span style="color:var(--danger);">Tekrar olcusunde anlamli fark var</span>') + '</p>';
+            html += '<p style="font-size:0.8rem;"><strong>Tekrar Ölçüsü Kontrolü (P.4 ↔ P.41):</strong> ';
+            html += 'konum farkı ' + (ds*1000).toFixed(1) + ' mm — ';
+            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK tekrarlılığı çok iyi (&lt;2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK tekrarlılığı kabul edilebilir (&lt;5 cm)</span>' : '<span style="color:var(--danger);">Tekrar ölçüsünde anlamlı fark var</span>') + '</p>';
         }
-        
-        // Height comparison note
-        html += '<p style="font-size:0.8rem;margin-top:0.5rem;"><strong>Yukseklik Karsilastirmasi:</strong> GPS ile hesaplanan ortometrik yukseklikler, Uygulama-4 (poligon) ve Uygulama-5 (geometrik/trigonometrik nivelman) sonuclariyla karsilastirilmalidir. Farkli yontemlerle elde edilen 3B koordinatlar Tablo-2\'de kiyaslanmistir.</p>';
-        
-        // Kroki requirement
-        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.5rem 0.8rem;margin:0.8rem 0;font-size:0.78rem;">';
-        html += '<strong>Olcu Krokisi:</strong> Her ogrenci tarafindan A3 kagida yaklasik olcekte olcu krokisi hazirlanacaktir. Krokide parsel koseleri, elektrik direkleri, agaclar ve diger detay noktalari gosterilmelidir. Kroki elle cizilecek olup kuzey oku icermelidir.';
+
+        // ── 3. Tablo-2: yöntemler arası yükseklik karşılaştırması ──
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">3. Tablo-2 — Yükseklik Karşılaştırması (üç yöntem)</h4>';
+        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.4rem;">GPS ile hesaplanan ortometrik yükseklikler, aynı noktalardaki geometrik nivelman (Uygulama-5) ve trigonometrik nivelman sonuçlarıyla karşılaştırılmıştır (grup verisi):</p>';
+        html += '<div style="overflow-x:auto;"><table class="u3-obs-table" style="font-size:0.75rem;">';
+        html += '<thead><tr><th>Nokta</th><th>GPS H (m)</th><th>Geometrik Niv. (m)</th><th>Trigonometrik Niv. (m)</th><th>GPS−Geo (cm)</th><th>GPS−Trig (cm)</th></tr></thead><tbody>';
+        for (const r of heightComparison) {
+            const dGeo = (r.gps !== null && r.geo !== null) ? ((r.gps - r.geo) * 100).toFixed(1) : '—';
+            const dTrig = (r.gps !== null && r.trig !== null) ? ((r.gps - r.trig) * 100).toFixed(1) : '—';
+            html += '<tr><td><b>' + r.id + '</b></td><td>' + (r.gps !== null ? r.gps.toFixed(3) : '— (ağaç altı)') + '</td><td>' + (r.geo !== null ? r.geo.toFixed(4) : '—') + '</td><td>' + (r.trig !== null ? r.trig.toFixed(3) : '—') + '</td><td>' + dGeo + '</td><td>' + dTrig + '</td></tr>';
+        }
+        html += '</tbody></table></div>';
+        html += '<p style="font-size:0.78rem;color:var(--text-2);line-height:1.6;margin-top:0.4rem;">'
+             + 'Üç yöntem arasındaki farklar yaklaşık 10–35 cm aralığındadır. Geometrik nivelman en güvenilir yükseklik yöntemi olmakla birlikte, '
+             + 'buradaki nivelman hattının kendi kapanma hatası tolerans dışı kaldığından (Uygulama-5 raporuna bakınız) farkların bir bölümü nivelman '
+             + 'hattındaki hatadan kaynaklanmaktadır. Trigonometrik nivelmanda düşey açı hataları mesafeyle birlikte yükseklik farkına doğrudan yansır. '
+             + 'RTK GPS yükseklikleri ise jeoit modelinin (N) doğruluğuyla sınırlıdır; N tek bir noktadan (N.38) türetildiği için bölgesel jeoit eğimi ihmal edilmiştir.</p>';
+
+        // ── 4. Kroki + sonuç ──
+        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">4. Ölçü Krokisi ve Teslim</h4>';
+        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.5rem 0.8rem;margin:0.4rem 0;font-size:0.78rem;">';
+        html += '<strong>Ölçü Krokisi:</strong> Her öğrenci tarafından A3 kâğıda yaklaşık ölçekte ölçü krokisi hazırlanacaktır. Krokide parsel köşeleri, elektrik direği (108), ağaçlar (109, 110) ve diğer detay noktaları gösterilmeli; kroki elle çizilmeli ve kuzey oku içermelidir. Ölçülen yeşil alan haritada renk kodlu işaretlerle gösterilmiştir.';
         html += '</div>';
-        
-        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">* RTK GPS olcumlerinde YLDZ sabit istasyonundan gelen duzeltmeler kullanilmistir. Parsel koseleri ve detay noktalari hem kutupsal alim hem de RTK GPS ile ayri ayri olculmustur. Cephe kontrolu icin parsel kenarlari serit metre ile ayrica olculmustur.</p>';
+
+        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">* RTK GPS ölçümlerinde YLDZ sabit istasyonundan gelen düzeltmeler kullanılmıştır. Parsel köşeleri ve detay noktaları hem kutupsal alım hem de RTK GPS ile ayrı ayrı ölçülmüştür. Cephe kontrolü için parsel kenarları şerit metre ile ayrıca ölçülmüştür. Yükseklik karşılaştırma değerleri grup raporundaki Tablo-2\'den alınmıştır.</p>';
         html += '</div>';
         el.innerHTML = html;
     }

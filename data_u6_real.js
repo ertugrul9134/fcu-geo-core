@@ -9,7 +9,8 @@
    - N.38: Repeat observation of point 38
    - 100-110: Detail points (trees, poles, etc.)
    - 108-DIREK: Utility pole
-   - 110-AGAC2: Tree #2
+   - 109-AGAC2: Tree #2 (user-confirmed label; raw txt had it unlabeled)
+   - 110-AGAC: Tree #1 (raw txt label "110-AGAC2" was a field-book slip)
    ============================================================= */
 
 export const rtkMeasurements = [
@@ -33,8 +34,8 @@ export const rtkMeasurements = [
   { id: "106",    X: 4543828.921, Y: 406350.525, h_ell: 110.92, type: "detail" },
   { id: "107",    X: 4543849.254, Y: 406356.407, h_ell: 111.471, type: "detail" },
   { id: "108-DIREK",  X: 4543847.853, Y: 406357.599, h_ell: 111.722, type: "pole" },
-  { id: "109-AGAC", X: 4543837.666, Y: 406359.366, h_ell: 110.949, type: "tree" },
-  { id: "110-AGAC2",  X: 4543829.713, Y: 406356.162, h_ell: 110.803, type: "tree" },
+  { id: "109-AGAC2", X: 4543837.666, Y: 406359.366, h_ell: 110.949, type: "tree" },
+  { id: "110-AGAC",  X: 4543829.713, Y: 406356.162, h_ell: 110.803, type: "tree" },
 ];
 
 /**

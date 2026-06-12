@@ -4,3 +4,5 @@ videos/
 *.log
 app_original.js
 _tmp_trig_calc.js
+
+verify_*.png
