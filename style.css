@@ -37,6 +37,10 @@
     --header-h: 64px;
     --radius: 14px;
     --radius-sm: 8px;
+
+    /* Inline box backgrounds (used by report/adjustment info boxes) */
+    --bg-2: rgba(0, 0, 0, 0.20);
+    --bg-3: rgba(255, 255, 255, 0.04);
 }
 
 /* ═══ RESET ═══ */
@@ -1602,3 +1606,282 @@ body:has(.inner-nav-bar:not(.hidden)) main.page { scroll-margin-top: calc(var(--
     margin-right: 0.4rem;
 }
 @keyframes u3-spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════
+   THEME TOGGLE BUTTON
+   ═══════════════════════════════════════════════ */
+.theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: rgba(196, 149, 106, 0.08);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    color: var(--text-3);
+    flex-shrink: 0;
+    padding: 0;
+}
+.theme-toggle-btn:hover {
+    background: rgba(196, 149, 106, 0.2);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+.theme-toggle-btn svg { pointer-events: none; }
+
+/* ═══════════════════════════════════════════════
+   REPORT MAP EMBED (OSM iframe in Rapor tabs)
+   ═══════════════════════════════════════════════ */
+.report-map-frame {
+    width: 100%;
+    height: 340px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    display: block;
+}
+.report-map-section {
+    margin-bottom: 1.5rem;
+}
+.report-map-section h4 {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--glass-border);
+}
+.report-map-caption {
+    font-size: 0.72rem;
+    color: var(--text-3);
+    margin: 0.25rem 0 0;
+}
+
+/* ═══════════════════════════════════════════════
+   LIGHT THEME  (html[data-theme="light"])
+   ═══════════════════════════════════════════════ */
+html[data-theme="light"] {
+    --accent: #7d4a24;
+    --accent-light: #9a6133;
+    --accent-glow: rgba(125, 74, 36, 0.22);
+    --danger: #c0392b;
+    --danger-glow: rgba(192, 57, 43, 0.22);
+    --success: #27ae60;
+
+    --glass-bg: rgba(250, 246, 243, 0.9);
+    --glass-border: rgba(120, 95, 80, 0.18);
+    --glass-blur: 16px;
+
+    --text-1: #1a1412;
+    --text-2: #3e3432;
+    --text-3: #7b6359;
+
+    --bg-2: rgba(165, 145, 135, 0.14);
+    --bg-3: rgba(210, 198, 190, 0.32);
+}
+
+html[data-theme="light"] body {
+    background: #f0ebe6;
+    color: #1a1412;
+}
+html[data-theme="light"] body::before {
+    background:
+        radial-gradient(ellipse at 20% 0%, rgba(125, 74, 36, 0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(125, 74, 36, 0.04) 0%, transparent 50%);
+}
+
+html[data-theme="light"] .glass-panel {
+    background: linear-gradient(135deg, rgba(255, 253, 250, 0.94) 0%, rgba(248, 244, 239, 0.97) 100%);
+    border: 1px solid rgba(150, 118, 95, 0.18);
+    border-top: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07), inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+html[data-theme="light"] .glass-panel:hover {
+    border-color: rgba(125, 74, 36, 0.28);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10), 0 0 16px rgba(125, 74, 36, 0.08);
+    transform: translateY(-3px);
+}
+
+html[data-theme="light"] .glass-header {
+    background: rgba(245, 239, 232, 0.92);
+    border-bottom-color: rgba(150, 118, 95, 0.2);
+}
+html[data-theme="light"] .inner-nav-bar {
+    background: rgba(240, 234, 228, 0.88);
+    border-bottom-color: rgba(150, 118, 95, 0.15);
+}
+html[data-theme="light"] .outer-nav {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(150, 118, 95, 0.15);
+}
+html[data-theme="light"] .nav-btn { color: #7b6359; }
+html[data-theme="light"] .nav-btn:hover {
+    color: #1a1412;
+    background: rgba(0, 0, 0, 0.04);
+}
+html[data-theme="light"] .nav-btn.active {
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 2px 10px rgba(125, 74, 36, 0.3);
+}
+
+html[data-theme="light"] .u3-obs-table th {
+    background: rgba(200, 180, 168, 0.35) !important;
+    color: var(--accent) !important;
+}
+html[data-theme="light"] .u3-obs-table td {
+    color: #1a1412 !important;
+    border-bottom-color: rgba(150, 120, 100, 0.2) !important;
+}
+html[data-theme="light"] .u3-obs-table tr:nth-child(even) td {
+    background: rgba(218, 207, 200, 0.22) !important;
+}
+
+html[data-theme="light"] .formula-render {
+    background: rgba(218, 207, 200, 0.28);
+    border-left-color: var(--accent);
+    color: #1a1412;
+}
+html[data-theme="light"] .report-body { color: #3e3432; }
+html[data-theme="light"] .report-body h3 {
+    color: var(--accent);
+    border-bottom-color: rgba(150, 120, 100, 0.22);
+}
+html[data-theme="light"] .glass-panel h3 { color: var(--accent); }
+html[data-theme="light"] .katex { color: #1a1412; }
+
+html[data-theme="light"] .formula-card { background: linear-gradient(135deg, rgba(255, 253, 250, 0.94) 0%, rgba(248, 244, 239, 0.97) 100%); }
+html[data-theme="light"] .formula-desc { color: #7b6359; }
+html[data-theme="light"] .formula-box { background: rgba(218, 207, 200, 0.2); color: #3e3432; }
+html[data-theme="light"] .formula-box strong { color: #1a1412; }
+
+html[data-theme="light"] .report-map-frame { border-color: rgba(150, 118, 95, 0.25); }
+
+/* ═══════════════════════════════════════════════
+   PRINT STYLES — A4 Rapor Çıktısı
+   ═══════════════════════════════════════════════ */
+@media print {
+    html { color-scheme: light; }
+
+    :root {
+        --accent: #7d4a24 !important;
+        --accent-light: #9a6133 !important;
+        --accent-glow: transparent !important;
+        --glass-border: #ccc !important;
+        --text-1: #1a1412 !important;
+        --text-2: #3e3432 !important;
+        --text-3: #7b6359 !important;
+        --bg-2: #ede8e3 !important;
+        --bg-3: #f5f0ed !important;
+    }
+
+    body {
+        background: #fff !important;
+        color: #1a1412 !important;
+        font-size: 10pt !important;
+    }
+    body::before { display: none !important; }
+
+    /* ── Hide all chrome ── */
+    #splashScreen, #tsparticles, .glass-header, .inner-nav-bar,
+    .mobile-menu-btn, .nav-indicator { display: none !important; }
+
+    /* ── Show only the active page ── */
+    .page { display: none !important; padding-top: 0 !important; min-height: 0 !important; }
+    .page.active { display: block !important; padding-top: 0 !important; }
+    .page-single { max-width: 100% !important; padding: 0 !important; }
+
+    /* ── Glass panels become white cards ── */
+    .glass-panel {
+        background: #fff !important;
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    .glass-panel:hover { transform: none !important; }
+
+    /* ── Report typography ── */
+    .report-body {
+        max-width: 100% !important;
+        color: #1a1412 !important;
+        font-size: 10pt !important;
+        line-height: 1.65 !important;
+    }
+    .report-body h3 {
+        color: #7d4a24 !important;
+        border-bottom: 1px solid #ccc !important;
+        page-break-after: avoid !important;
+        font-size: 12pt !important;
+    }
+    .report-body p { color: #3e3432 !important; }
+
+    /* ── Tables ── */
+    .u3-obs-table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+        font-size: 8.5pt !important;
+        page-break-inside: auto !important;
+    }
+    .u3-obs-table th {
+        background: #e8ddd7 !important;
+        color: #7d4a24 !important;
+        border: 1px solid #aaa !important;
+        font-size: 7.5pt !important;
+    }
+    .u3-obs-table td {
+        border: 1px solid #ccc !important;
+        color: #1a1412 !important;
+        background: transparent !important;
+    }
+    .u3-obs-table tr:nth-child(even) td { background: #f8f4f0 !important; }
+    .u3-obs-table tr { page-break-inside: avoid; }
+
+    /* ── Formulas ── */
+    .formula-render {
+        background: #f5f0ed !important;
+        border-left: 3px solid #7d4a24 !important;
+        color: #1a1412 !important;
+    }
+    .katex { color: #1a1412 !important; }
+
+    /* ── Map frame ── */
+    .report-map-frame { height: 300px !important; page-break-after: avoid !important; }
+
+    /* ── Info boxes ── */
+    a { color: #7d4a24 !important; text-decoration: underline !important; }
+
+    /* ── Page format ── */
+    @page {
+        size: A4 portrait;
+        margin: 1.5cm 1.8cm 1.5cm 1.8cm;
+    }
+
+    h3 { page-break-after: avoid; }
+    table { page-break-inside: auto; }
+    img { page-break-inside: avoid; }
+
+    /* ── Print header ── */
+    .print-report-header { display: block !important; }
+}
+
+/* Hidden by default, printed only */
+.print-report-header {
+    display: none;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 2px solid #7d4a24;
+    font-family: 'Inter', sans-serif;
+}
+.print-report-header h1 { font-size: 16pt; color: #7d4a24; margin: 0; }
+.print-report-header .prhd-meta {
+    font-size: 9pt;
+    color: #7b6359;
+    margin: 0.3rem 0 0;
+    font-family: 'JetBrains Mono', monospace;
+}

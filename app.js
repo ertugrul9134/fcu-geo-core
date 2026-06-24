@@ -1021,6 +1021,13 @@ class U3Controller {
         const el = document.getElementById('u3ReportContent'); if (!el) return;
         const r = this._reduce();
         let h = '';
+        h += '<div class="print-report-header"><h1>Uygulama-3 — Silsile Düşey Açı Raporu</h1>'
+           + '<div class="prhd-meta">Öğrenci: Ertuğrul Kulak &nbsp;|&nbsp; No: 24046607 &nbsp;|&nbsp; Nokta: 48 &nbsp;|&nbsp; XX=07 &nbsp;|&nbsp; YTÜ Ölçme Uygulaması</div></div>';
+        h += '<div class="report-map-section">'
+           + '<h4>Ölçüm Alanı Haritası</h4>'
+           + '<iframe class="report-map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=28.855%2C41.015%2C28.905%2C41.040&layer=mapnik" title="Ölçüm alanı — YTÜ Davutpaşa ve cami hedefleri" sandbox="allow-scripts allow-same-origin"></iframe>'
+           + '<p class="report-map-caption">YTÜ Davutpaşa Kampüsü ve çevresindeki cami hedefleri (Fetih C., Hz. Ebubekir C., Davutpaşa Kışlası C.) &mdash; © OpenStreetMap katkıcıları. İnteraktif harita için <em>Harita</em> sekmesini açınız.</p>'
+           + '</div>';
         h += '<h3>1. Açıklama</h3>';
         h += '<p>Yıldız Teknik Üniversitesi Davutpaşa Kampüsü\'nde, zeminde sabit <strong>N.48</strong> noktası üzerine teodolit kurularak '
            + 'farklı uzaklıklardaki üç hedefe (L-1 kübbe, L-2 kübbe, YTÜ camisi; ~0.2–1.9 km) <strong>iki tam silsile yatay doğrultu</strong> ölçümü yapılmıştır. '
@@ -1217,6 +1224,13 @@ class U4Controller {
         const el = document.getElementById('u4ReportContent'); if (!el) return;
         const m = u4Meta;
         let h = '';
+        h += '<div class="print-report-header"><h1>Uygulama-4 — Dayalı Poligon Raporu</h1>'
+           + '<div class="prhd-meta">Öğrenci: Ertuğrul Kulak &nbsp;|&nbsp; No: 24046607 &nbsp;|&nbsp; Nokta: 48 &nbsp;|&nbsp; XX=07 &nbsp;|&nbsp; YTÜ Ölçme Uygulaması</div></div>';
+        h += '<div class="report-map-section">'
+           + '<h4>Poligon Güzergâh Haritası</h4>'
+           + '<iframe class="report-map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=28.878%2C41.020%2C28.902%2C41.034&layer=mapnik" title="Poligon güzergâhı — N.50→N.53→P1…P7→N.38→N.40" sandbox="allow-scripts allow-same-origin"></iframe>'
+           + '<p class="report-map-caption">Dayalı poligon güzergâhı: N.50→N.53→P1→P2→P3→P4→P5→P6→P7→N.38→N.40 — YTÜ Davutpaşa Kampüsü &mdash; © OpenStreetMap katkıcıları.</p>'
+           + '</div>';
         h += '<h3>1. Açıklama</h3>';
         h += '<p>YTÜ Davutpaşa Kampüsü\'nde <strong>' + m.knownStart + '</strong> noktasından <strong>' + m.knownEnd + '</strong> noktasına '
            + 'dayalı (bağlı) poligon ölçümü yapılmıştır. Güzergâh ' + m.route.join(' → ') + ' şeklindedir; açı ölçüleri başlangıçta '
@@ -1416,6 +1430,13 @@ class U5Controller {
         const el = document.getElementById('u5ReportContent'); if (!el) return;
         const c = closureU5, m = u5Meta;
         let h = '';
+        h += '<div class="print-report-header"><h1>Uygulama-5 — Nivelman Raporu</h1>'
+           + '<div class="prhd-meta">Öğrenci: Ertuğrul Kulak &nbsp;|&nbsp; No: 24046607 &nbsp;|&nbsp; Nokta: 48 &nbsp;|&nbsp; Ortak XX=52 &nbsp;|&nbsp; YTÜ Ölçme Uygulaması</div></div>';
+        h += '<div class="report-map-section">'
+           + '<h4>Nivelman Hattı Haritası</h4>'
+           + '<iframe class="report-map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=28.876%2C41.018%2C28.902%2C41.036&layer=mapnik" title="Nivelman hattı — RS14→…→RS14 kapalı döngü" sandbox="allow-scripts allow-same-origin"></iframe>'
+           + '<p class="report-map-caption">Kapalı nivelman güzergâhı: RS14→1→2→N.53→P1…P7→N.38→N.40→N.41→N.43→N.45→N.49→RS14 &mdash; © OpenStreetMap katkıcıları.</p>'
+           + '</div>';
         h += '<h3>1. Açıklama</h3>';
         h += '<p>YTÜ Davutpaşa Kampüsü\'nde RS14 (AN14) noktasından hareketle <strong>kapalı nivelman</strong> ölçümü yapılmıştır. '
            + 'Ölçüm geometrik nivelman yöntemiyle, nivo ve iki mira kullanılarak gerçekleştirilmiştir. Güzergâh RS14\'ten başlayıp '
@@ -1573,6 +1594,14 @@ class U6Controller {
 
         let html = '';
 
+        html += '<div class="print-report-header"><h1>Uygulama-6 — RTK GPS 3B Konumlama Raporu</h1>'
+              + '<div class="prhd-meta">Öğrenci: Ertuğrul Kulak &nbsp;|&nbsp; No: 24046607 &nbsp;|&nbsp; Nokta: 48 &nbsp;|&nbsp; XX=07 &nbsp;|&nbsp; YTÜ Ölçme Uygulaması</div></div>';
+        html += '<div class="report-map-section">'
+              + '<h4>RTK Nokta Dağılımı Haritası</h4>'
+              + '<iframe class="report-map-frame" src="https://www.openstreetmap.org/export/embed.html?bbox=28.882%2C41.021%2C28.897%2C41.032&layer=mapnik" title="RTK ölçüm noktaları — YTÜ Davutpaşa" sandbox="allow-scripts allow-same-origin"></iframe>'
+              + '<p class="report-map-caption">22 RTK GPS ölçüm noktası (parsel köşeleri, detay, direk, ağaçlar) — YTÜ Davutpaşa Kampüsü &mdash; © OpenStreetMap katkıcıları.</p>'
+              + '</div>';
+
         // ── 1. Açıklama ──
         html += '<h3>1. Açıklama</h3>';
         html += '<p>YTÜ Davutpaşa Kampüsü\'nde RTK GNSS yöntemiyle ölçüm yapılmıştır. Ölçümle poligon noktalarının koordinatları ile '
@@ -1674,8 +1703,38 @@ class U6Controller {
     }
 }
 
+/* ═══ THEME TOGGLE ═══ */
+function initTheme() {
+    const saved = localStorage.getItem('fcu_theme');
+    if (saved === 'light') _applyTheme('light');
+}
+function _applyTheme(theme) {
+    const html = document.documentElement;
+    const dark = document.getElementById('themeIconDark');
+    const light = document.getElementById('themeIconLight');
+    if (theme === 'light') {
+        html.setAttribute('data-theme', 'light');
+        if (dark) dark.style.display = 'none';
+        if (light) light.style.display = 'block';
+    } else {
+        html.removeAttribute('data-theme');
+        if (dark) dark.style.display = 'block';
+        if (light) light.style.display = 'none';
+    }
+}
+function toggleTheme() {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const next = isLight ? 'dark' : 'light';
+    localStorage.setItem('fcu_theme', next);
+    _applyTheme(next);
+}
+
 /* ═══ BOOT ═══ */
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
+    const themeBtn = document.getElementById('themeToggleBtn');
+    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+
     // 2.0s After Effects Style Splash Screen Logic with Breathing Geoid
     setTimeout(() => {
         const splash = document.getElementById('splashScreen');
