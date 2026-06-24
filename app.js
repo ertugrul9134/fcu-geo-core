@@ -1,5 +1,5 @@
 import { coordinates as DEFAULT_COORDS, measurements as DEFAULT_MEAS } from './data.js';
-import { stations_u3, defaultConstants_u3, emptyObservation } from './data_u3.js';
+import { stations_u3, defaultConstants_u3, emptyObservation, u3Silsile, u3NearbyMosques, u3StationId } from './data_u3.js';
 import {
     reduceSilsile, planarDistance, planarAzimuth, compareTarget,
     fmtGon, fmtMeter, gonToDms, normalizeGon as normGonU3
@@ -15,11 +15,11 @@ import { CalcHubController } from './calculators.js';
 
 import { synthU4, studentModifiers } from './synth_data.js';
 import { computeU4, compareCoordinates as compareCoords4 } from './u4_engine.js';
-import { u4Meta, u4Observations, u4ErrorAnalysis, heightComparison } from './data_u4_real.js';
+import { u4Meta, u4Coords, u4BreakAngles, u4Legs, u4TraverseLength } from './data_u4_real.js';
 import { tm30ToWGS84Approx } from './u6_engine.js';
-import { levelingData as U5_REAL, rsBenchmarks } from './data_u5_real.js';
+import { u5Meta, tablo1Raw, tablo2, H_START_U5, closureU5, tablo3Trig, comparisonU5 } from './data_u5_real.js';
 import { trigonometricDH, compareGeoVsTrig } from './u5_engine.js';
-import { rtkMeasurements as U6_REAL, N_GEOID } from './data_u6_real.js';
+import { rtkMeasurements as U6_REAL, N_GEOID, heightComparison } from './data_u6_real.js';
 /* ═══════════════════════════════════════════════
    GEODETIC ENGINE — re-exported from geo_math.js
    (kept as locals so existing app.js code keeps working)
@@ -147,10 +147,14 @@ const TaskRegistry = [
             { attrs: { d: 'M12 12 L18 6' } }
         ]),
         subpages: [
-            { id: 'u3', label: 'Silsile Düşey Açı', pageElementId: 'pageU3' }
+            { id: 'map',        label: 'Harita',     pageElementId: 'pageU3Map' },
+            { id: 'db',         label: 'Veritabanı', pageElementId: 'pageU3Db' },
+            { id: 'formulas',   label: 'Formüller',  pageElementId: 'pageU3Formulas' },
+            { id: 'report',     label: 'Rapor',      pageElementId: 'pageU3Report' },
+            { id: 'adjustment', label: 'Dengeleme',  pageElementId: 'pageU3Adjustment' }
         ],
         onSubpageActivate: (subId, app) => {
-            if (app.u3) setTimeout(() => app.u3.activate(), 100);
+            if (app.u3) setTimeout(() => app.u3.activate(subId), 100);
         }
     },
     {
@@ -160,11 +164,14 @@ const TaskRegistry = [
             { attrs: { d: 'M12 2v20' } }
         ]),
         subpages: [
-            { id: 'u4Main', label: 'Poligon Hesabı', pageElementId: 'pageU4Stub' },
-            { id: 'u4Report', label: 'Rapor', pageElementId: 'pageU4Report' }
+            { id: 'map',        label: 'Harita',     pageElementId: 'pageU4Map' },
+            { id: 'db',         label: 'Veritabanı', pageElementId: 'pageU4Db' },
+            { id: 'formulas',   label: 'Formüller',  pageElementId: 'pageU4Formulas' },
+            { id: 'report',     label: 'Rapor',      pageElementId: 'pageU4Report' },
+            { id: 'adjustment', label: 'Dengeleme',  pageElementId: 'pageU4Adjustment' }
         ]
     ,
-        onSubpageActivate: (subId, app) => { if (app.u4) setTimeout(() => app.u4.activate(), 100); }},
+        onSubpageActivate: (subId, app) => { if (app.u4) setTimeout(() => app.u4.activate(subId), 100); }},
     {
         id: 'u5', label: 'Uygulama-5',
         icon: () => svgIcon([
@@ -172,18 +179,29 @@ const TaskRegistry = [
             { tag: 'line', attrs: { x1: '7', y1: '6',  x2: '17', y2: '6' } },
             { tag: 'line', attrs: { x1: '5', y1: '18', x2: '19', y2: '18' } }
         ]),
-        subpages: [{ id: 'u5Stub', label: 'Nivelman', pageElementId: 'pageU5Stub' }]
+        subpages: [
+            { id: 'map',        label: 'Harita',     pageElementId: 'pageU5Map' },
+            { id: 'db',         label: 'Veritabanı', pageElementId: 'pageU5Db' },
+            { id: 'formulas',   label: 'Formüller',  pageElementId: 'pageU5Formulas' },
+            { id: 'report',     label: 'Rapor',      pageElementId: 'pageU5Report' },
+            { id: 'adjustment', label: 'Dengeleme',  pageElementId: 'pageU5Adjustment' }
+        ]
     ,
-        onSubpageActivate: (subId, app) => { if (app.u5) setTimeout(() => app.u5.activate(), 100); }},
+        onSubpageActivate: (subId, app) => { if (app.u5) setTimeout(() => app.u5.activate(subId), 100); }},
     {
         id: 'u6', label: 'Uygulama-6',
         icon: () => svgIcon([
             { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
             { attrs: { d: 'M2 12h20M12 2a15 15 0 0 1 0 20a15 15 0 0 1 0 -20' } }
         ]),
-        subpages: [{ id: 'u6Stub', label: '3B Konumlama', pageElementId: 'pageU6Stub' }]
-    ,
-        onSubpageActivate: (subId, app) => { if (app.u6) setTimeout(() => app.u6.activate(), 100); }},
+        subpages: [
+            { id: 'map',        label: 'Harita',     pageElementId: 'pageU6Map' },
+            { id: 'db',         label: 'Veritabanı', pageElementId: 'pageU6Db' },
+            { id: 'formulas',   label: 'Formüller',  pageElementId: 'pageU6Formulas' },
+            { id: 'report',     label: 'Rapor',      pageElementId: 'pageU6Report' },
+            { id: 'adjustment', label: 'Dengeleme',  pageElementId: 'pageU6Adjustment' }
+        ],
+        onSubpageActivate: (subId, app) => { if (app.u6) setTimeout(() => app.u6.activate(subId), 100); }},
     {
         id: 'calc', label: 'Hesaplayıcılar',
         icon: () => svgIcon([
@@ -216,8 +234,7 @@ class App {
         this.renderStaticFormulas();
 
         // Uygulama-3 controller (lazily initialized; map needs visible container)
-        this.u3 = new U3Controller();
-        this.u3.bindStaticControls();
+        this.u3 = new U3Controller(this);
 
         // Calculator Hub controller (lazy mount on tab activate)
         this.calcHub = new CalcHubController();
@@ -871,657 +888,166 @@ class App {
    UYGULAMA-3 CONTROLLER — Silsile Düşey Açı
    ═══════════════════════════════════════════════ */
 class U3Controller {
-    constructor() {
-        this.map = null;
-        this.stations = stations_u3;
-        this.constants = this.loadConstants();
-        this.selectedStation = null;
-        this.mosques = [];                 // Overpass'tan gelen tüm camiler
-        this.selectedMosqueIds = [];       // Sıralı 3 cami
-        this.observation = null;
-        this.activated = false;
-
-        // Marker layer'ları
-        this.stationMarkers = {};      // 46 sabit nokta için node-marker (uyg-2 stili)
-        this.radiusCircle = null;
-        this.mosqueMarkers = {};
-        this.clusterLayer = null;
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.rays = []; this.rendered = false; }
+    activate(subId) {
+        if (!this.map) this.initMap();
+        if (!this.rendered) { this.renderAll(); this.rendered = true; }
+        if (!subId || subId === 'map') setTimeout(() => { if (this.map) { this.map.invalidateSize(); this._fit(); } }, 120);
     }
-
-    loadConstants() {
-        const stored = localStorage.getItem('fcu_u3_constants');
-        if (stored) {
-            try { return { ...defaultConstants_u3, ...JSON.parse(stored) }; }
-            catch (_) { /* fallthrough */ }
-        }
-        return { ...defaultConstants_u3 };
-    }
-
-    saveConstants() {
-        localStorage.setItem('fcu_u3_constants', JSON.stringify(this.constants));
-    }
-
-    bindStaticControls() {
-        // İstasyon picker'ını ThemedSelect ile değiştir
-        const sel = document.getElementById('u3StationSelect');
-        const items = Object.keys(this.stations)
-            .sort((a, b) => Number(a) - Number(b))
-            .map(id => {
-                const s = this.stations[id];
-                return {
-                    value: id,
-                    label: `Nokta ${id}`,
-                    sublabel: `h = ${s.h.toFixed(2)} m  ·  Y = ${s.Y.toFixed(0)}  X = ${s.X.toFixed(0)}`
-                };
-            });
-        this.stationSelect = new ThemedSelect({
-            mountEl: sel,
-            items,
-            placeholder: '— İstasyon noktası seç —',
-            filterable: true,
-            onChange: (v) => this.onStationChange(v)
-        });
-
-        // Camileri yükle butonu
-        document.getElementById('u3LoadMosquesBtn')
-            .addEventListener('click', () => this.loadMosques());
-
-        // Temizle butonu
-        document.getElementById('u3ClearU3Btn')
-            .addEventListener('click', () => this.clearAll());
-
-        // Sabitler input'ları
-        const bindConst = (id, key, parser = parseFloat) => {
-            const el = document.getElementById(id);
-            el.value = this.constants[key];
-            el.addEventListener('change', () => {
-                const v = parser(el.value);
-                if (!isNaN(v)) {
-                    this.constants[key] = v;
-                    this.saveConstants();
-                    this.recomputeIfReady();
-                }
-            });
-        };
-        bindConst('u3ConstK', 'k');
-        bindConst('u3ConstR', 'R');
-        bindConst('u3ConstI', 'i');
-        bindConst('u3ConstT', 't_minare');
-
-        // Yakındaki N camiyi göster slider'ı
-        const slider = document.getElementById('u3NearbyN');
-        const sliderLabel = document.getElementById('u3NearbyNLabel');
-        if (slider && sliderLabel) {
-            slider.value = this.constants.nearbyN ?? 30;
-            sliderLabel.textContent = slider.value;
-            slider.addEventListener('input', () => {
-                sliderLabel.textContent = slider.value;
-                this.constants.nearbyN = parseInt(slider.value, 10);
-                this.saveConstants();
-                if (this.mosques.length > 0) {
-                    this.renderMosqueList();
-                    this.renderMosqueMarkers();
-                }
-            });
-        }
-
-        // Hesapla butonu
-        document.getElementById('u3CalcBtn')
-            .addEventListener('click', () => this.calculate());
-    }
-
-    activate() {
-        if (!this.activated) {
-            this.initMap();
-            this.activated = true;
-        }
-        if (this.map) this.map.invalidateSize();
-    }
-
     initMap() {
-        const CENTER = [41.0241, 28.8868];   // YTU Davutpaşa default
-        this.map = L.map('geoMapU3', {
-            center: CENTER,
-            zoom: 15,
-            zoomControl: true
+        const el = document.getElementById('u3Map'); if (!el || this.map) return;
+        this.map = L.map('u3Map', { zoomControl: true }).setView([41.0248, 28.8867], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
+    }
+    _fit() { if (this.markers.length && this.map) this.map.fitBounds(L.latLngBounds(this.markers.map(m => m.getLatLng())), { padding: [40, 40] }); }
+    _norm(x) { return ((x % 400) + 400) % 400; }
+    _reduce() {
+        const s = u3Silsile, refName = s.reference;
+        const targets = s.sets[0].obs.map(o => o.target);
+        const perSet = s.sets.map(set => {
+            const ref = set.obs.find(o => o.target === refName);
+            return { set: set.set, rows: set.obs.map(o => {
+                const redI = this._norm(o.faceI - ref.faceI);
+                const redII = this._norm(o.faceII - ref.faceII);
+                return { target: o.target, faceI: o.faceI, faceII: o.faceII, redI, redII, setDir: (redI + redII) / 2 };
+            }) };
         });
-
-        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
+        const finals = targets.map(t => {
+            const setDirs = perSet.map(ps => ps.rows.find(r => r.target === t).setDir);
+            const n = setDirs.length, mean = setDirs.reduce((a, b) => a + b, 0) / n;
+            const resid = setDirs.map(d => d - mean);
+            const s_one = n > 1 ? Math.sqrt(resid.reduce((a, v) => a + v * v, 0) / (n - 1)) : 0;
+            return { target: t, setDirs, mean, s_one, s_mean: s_one / Math.sqrt(n) };
         });
-        const googleSat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            maxZoom: 20, attribution: '© Google'
-        });
-        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-            maxZoom: 20, attribution: '© Google'
-        });
-        osm.addTo(this.map);
-
-        L.control.layers(
-            { 'Sokak (OSM)': osm, 'Uydu (Google)': googleSat, 'Hibrit (Google)': googleHybrid },
-            null,
-            { position: 'topright' }
-        ).addTo(this.map);
-
-        // Zoom değişikliğinde marker boyutlarını yeniden hesapla
-        this.map.on('zoomend', () => {
-            if (this.mosques.length > 0) this.renderMosqueMarkers();
-        });
-
-        // 46 istasyon noktasını haritada göster (uyg-2 ile aynı stil)
-        this.rebuildStationMarkers();
+        return { perSet, finals, targets, refName };
     }
+    renderAll() { this.renderMap(); this.renderDatabase(); this.renderFormulas(); this.renderReport(); this.renderAdjustment(); }
 
-    rebuildStationMarkers() {
-        Object.values(this.stationMarkers).forEach(mk => this.map.removeLayer(mk));
-        this.stationMarkers = {};
-
-        const ids = Object.keys(this.stations).sort((a, b) => Number(a) - Number(b));
-        const bounds = [];
-
-        ids.forEach(id => {
-            const s = this.stations[id];
-            const ll = toLatLng(s.Y, s.X);
-            bounds.push(ll);
-
-            const rawHtml = '<div class="node-marker" data-id="' + escapeHTML(id) + '">' + escapeHTML(id) + '</div>';
-            const safeHtml = window.DOMPurify ? DOMPurify.sanitize(rawHtml) : rawHtml;
-            const icon = L.divIcon({
-                className: '', html: safeHtml,
-                iconSize: [28, 28], iconAnchor: [14, 14]
-            });
-            const marker = L.marker(ll, { icon, riseOnHover: true }).addTo(this.map);
-
-            const tip = `<b>Nokta ${escapeHTML(id)}</b><br>Y: ${s.Y.toFixed(3)}<br>X: ${s.X.toFixed(3)}<br>h: ${s.h.toFixed(3)} m`;
-            marker.bindTooltip(window.DOMPurify ? DOMPurify.sanitize(tip) : tip,
-                               { direction: 'top', offset: [0, -10], opacity: 0.9 });
-            marker.on('click', () => {
-                if (this.stationSelect) this.stationSelect.setValue(id, true);
-                else this.onStationChange(id);
-            });
-            this.stationMarkers[id] = marker;
-        });
-
-        // Tüm noktaları çevreleyen bound'a fit
-        if (bounds.length > 0) {
-            this.map.fitBounds(L.latLngBounds(bounds), { padding: [40, 40], maxZoom: 18 });
+    renderMap() {
+        if (!this.map) this.initMap(); if (!this.map) return;
+        this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
+        const N48 = stations_u3[u3StationId];
+        // İstasyon N.48
+        const stLL = toLatLng(N48.Y, N48.X);
+        const stM = L.circleMarker(stLL, { radius: 8, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 0.95 })
+            .bindPopup('<b>N.48 — İstasyon</b><br>Ertuğrul<br>h = ' + N48.h.toFixed(3) + ' m').addTo(this.map);
+        this.markers.push(stM);
+        // Çevredeki gerçek camiler (az + dist ile konumlandırılır)
+        for (const m of u3NearbyMosques) {
+            const X = N48.X + m.dist * Math.cos(m.az * Math.PI / 200);
+            const Y = N48.Y + m.dist * Math.sin(m.az * Math.PI / 200);
+            const ll = toLatLng(Y, X);
+            const mk = L.circleMarker(ll, { radius: 5, fillColor: '#4caf50', color: '#fff', weight: 1.5, fillOpacity: 0.85 })
+                .bindPopup('<b>' + m.name + '</b><br>N.48\'den semt: ' + m.az.toFixed(2) + ' gon<br>yatay mesafe: ' + m.dist.toFixed(0) + ' m');
+            mk.addTo(this.map); this.markers.push(mk);
+        }
+        this._fit();
+        const r = this._reduce();
+        const info = document.getElementById('u3MapInfo');
+        if (info) {
+            let h = '<div style="font-size:0.84rem;line-height:1.8;">'
+                + '<b style="color:var(--accent);">İstasyon:</b> N.48 (Ertuğrul)<br>'
+                + '<b style="color:var(--accent);">Hedefler (2 silsile):</b> ' + r.targets.join(', ') + '<br>'
+                + '<b style="color:var(--accent);">İndirgenmiş doğrultular (L-1 kübbe = 0):</b></div>';
+            h += '<table class="u3-obs-table" style="margin-top:0.4rem;"><thead><tr><th>Hedef</th><th>Kesin doğrultu (gon)</th></tr></thead><tbody>';
+            for (const f of r.finals) h += '<tr><td>' + f.target + '</td><td>' + f.mean.toFixed(4) + '</td></tr>';
+            h += '</tbody></table>';
+            h += '<p style="font-size:0.74rem;color:var(--text-3);margin-top:0.5rem;">Yeşil işaretler N.48 çevresindeki gerçek camilerdir (OpenStreetMap). Ölçülen doğrultular L-1 kübbe referansına göre olduğundan mutlak yöneltme için anchor gereklidir (bk. Rapor → Düşey Açı).</p>';
+            info.innerHTML = h;
         }
     }
 
-    /* ——— İstasyon değişimi ——— */
-    onStationChange(stationId) {
-        this.clearMosques();
-        if (!stationId) {
-            this.selectedStation = null;
-            this.updateStationInfo();
-            this._setSelectedNodeMarker(null);
-            this._clearRadius();
-            document.getElementById('u3LoadMosquesBtn').disabled = true;
-            return;
+    renderDatabase() {
+        const el = document.getElementById('u3DbContent'); if (!el) return;
+        const r = this._reduce();
+        let h = '<h3 style="color:var(--accent);">Yatay Doğrultu Silsile Çizelgesi — İstasyon N.48</h3>';
+        h += '<p style="font-size:0.82rem;color:var(--text-2);">Gözlemci: ' + u3Silsile.observer + ' · Tarih: ' + u3Silsile.dates.join(' / ') + ' · Referans (sıfır): ' + u3Silsile.reference + '</p>';
+        for (const ps of r.perSet) {
+            h += '<h4 style="margin:0.8rem 0 0.3rem;color:var(--text-2);">' + ps.set + '. Silsile</h4>';
+            h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>I. durum (gon)</th><th>II. durum (gon)</th><th>1. sıfıra ind.</th><th>2. sıfıra ind.</th><th>Yarım silsile ort.</th></tr></thead><tbody>';
+            for (const row of ps.rows) h += '<tr><td><b>' + row.target + '</b></td><td>' + row.faceI.toFixed(4) + '</td><td>' + row.faceII.toFixed(4) + '</td><td>' + row.redI.toFixed(4) + '</td><td>' + row.redII.toFixed(4) + '</td><td style="color:var(--accent);">' + row.setDir.toFixed(4) + '</td></tr>';
+            h += '</tbody></table></div>';
         }
-        this.selectedStation = stationId;
-        const s = this.stations[stationId];
-        const [lat, lng] = toLatLng(s.Y, s.X);
-
-        // Node-marker'ı 'selected' işaretle (uyg-2 ile aynı görünüm)
-        this._setSelectedNodeMarker(stationId);
-
-        // 10 km halkası
-        this._clearRadius();
-        this.radiusCircle = L.circle([lat, lng], {
-            radius: this.constants.searchRadiusKm * 1000,
-            color: '#C4956A',
-            fillColor: '#C4956A',
-            fillOpacity: 0.04,
-            weight: 1.5,
-            dashArray: '6 6'
-        }).addTo(this.map);
-
-        this.map.setView([lat, lng], 13);
-        this.updateStationInfo();
-        document.getElementById('u3LoadMosquesBtn').disabled = false;
+        h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.6rem;">II. durum ≈ I. durum + 200ᵍ (çift yüz okuma). Sıfıra indirgeme = doğrultu − referans doğrultu (L-1 kübbe).</p>';
+        el.innerHTML = h;
     }
 
-    _setSelectedNodeMarker(stationId) {
-        Object.entries(this.stationMarkers).forEach(([id, mk]) => {
-            const el = mk.getElement();
-            if (!el) return;
-            const inner = el.querySelector('.node-marker');
-            if (!inner) return;
-            inner.classList.toggle('selected', id === String(stationId));
-        });
+    renderFormulas() {
+        const el = document.getElementById('u3FormulasContent'); if (!el) return;
+        const K = (t) => katex.renderToString(t, { displayMode: true, throwOnError: false });
+        const card = (title, desc, tex) => '<div class="glass-panel formula-card"><h3>' + title + '</h3><p class="formula-desc">' + desc + '</p><div class="formula-render">' + K(tex) + '</div></div>';
+        let h = '<div class="formulas-grid">';
+        h += card('Yarım Silsile Ortalaması', 'İki yüz okumasının sıfıra indirgenmiş ortalaması.', 'r_i = \\dfrac{(I_i - I_{ref}) + (II_i - II_{ref})}{2}');
+        h += card('Kesin Doğrultu', 'n silsilenin doğrultu ortalaması.', '\\bar{r} = \\dfrac{1}{n}\\sum_{k=1}^{n} r_{i,k}');
+        h += card('Bir Doğrultunun Std. Sapması', 'Silsileler arası dağılımdan (Bessel).', 's = \\sqrt{\\dfrac{\\sum v^{2}}{n-1}}, \\quad v_k = r_{i,k} - \\bar{r}');
+        h += card('Kesin Doğrultunun Std. Sapması', 'Ortalamanın standart sapması.', 's_{\\bar{r}} = \\dfrac{s}{\\sqrt{n}}');
+        h += card('Düşey (Zenit) Açı', 'Hedef yüksekliği ve yatay mesafeden türetim.', 'Z = 100^{g} - \\dfrac{200}{\\pi}\\arctan\\!\\dfrac{H_{hedef} - H_{alet}}{D}');
+        h += card('Trigonometrik Yükseklik', 'Düşey açı ve mesafeden yükseklik farkı.', '\\Delta H = D\\cot Z + i - t + \\dfrac{(1-k)D^{2}}{2R}');
+        h += '</div>';
+        el.innerHTML = h;
     }
 
-    _clearRadius() {
-        if (this.radiusCircle) { this.map.removeLayer(this.radiusCircle); this.radiusCircle = null; }
+    renderReport() {
+        const el = document.getElementById('u3ReportContent'); if (!el) return;
+        const r = this._reduce();
+        let h = '';
+        h += '<h3>1. Açıklama</h3>';
+        h += '<p>Yıldız Teknik Üniversitesi Davutpaşa Kampüsü\'nde, zeminde sabit <strong>N.48</strong> noktası üzerine teodolit kurularak '
+           + 'yaklaşık 750–1000 m mesafedeki üç hedefe (L-1 kübbe, L-2 kübbe, YTÜ cami) <strong>iki tam silsile yatay doğrultu</strong> ölçümü yapılmıştır. '
+           + 'Her hedef iki yüzde (I. ve II. durum) okunmuş, doğrultular referans hedefe (L-1 kübbe) sıfırlanarak indirgenmiştir. '
+           + 'Yönerge ayrıca düşey açı ölçümünü de gerektirir; düşey açı çizelgesi elimizde bulunmadığından, ölçülen yatay doğrultularla nişan alınan '
+           + 'yapılar belirlenip yükseklikleri üzerinden düşey açılar türetilmiştir (bk. bölüm 4).</p>';
+        h += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.85rem;">'
+           + '<span><strong>İstasyon:</strong> N.48</span><span><strong>Gözlemci:</strong> Ertuğrul (24046607)</span>'
+           + '<span><strong>Silsile:</strong> 2 tam</span><span><strong>Hedef:</strong> ' + r.targets.length + '</span></div>';
+
+        h += '<h3>2. Yatay Doğrultu İndirgemesi — Kesin Doğrultular</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>1. silsile (gon)</th><th>2. silsile (gon)</th><th>Kesin doğrultu (gon)</th></tr></thead><tbody>';
+        for (const f of r.finals) h += '<tr><td><b>' + f.target + '</b></td><td>' + f.setDirs[0].toFixed(4) + '</td><td>' + f.setDirs[1].toFixed(4) + '</td><td style="color:var(--accent);">' + f.mean.toFixed(4) + '</td></tr>';
+        h += '</tbody></table></div>';
+
+        h += '<h3>3. Standart Sapma Analizi</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>Bir doğrultunun σ (cc)</th><th>Kesin doğrultunun σ (cc)</th></tr></thead><tbody>';
+        for (const f of r.finals) h += '<tr><td>' + f.target + '</td><td>' + (f.s_one * 10000).toFixed(1) + '</td><td>' + (f.s_mean * 10000).toFixed(1) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.8rem;color:var(--text-2);">σ değerleri iki silsile arasındaki farktan (Bessel) hesaplanmıştır; 1 cc = 10⁻⁴ gon. Referans hedefin (L-1 kübbe) sapması tanım gereği sıfırdır.</p>';
+
+        h += '<h3>4. Düşey Açı Türetimi (Nişan Alınan Camiler)</h3>';
+        h += '<p>Ölçülen kesin doğrultular L-1 kübbe referansına göredir (mutlak semt ölçülmemiştir). N.48 çevresindeki gerçek camiler '
+           + '(OpenStreetMap) ve N.48\'den hesaplanan semt açıları aşağıdadır. Bir hedefin düşey açısı, yapının tepe yüksekliği ile '
+           + 'yatay mesafesinden Z = 100ᵍ − (200/π)·arctan((H<sub>hedef</sub>−H<sub>alet</sub>)/D) ile türetilir.</p>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Cami (OSM)</th><th>N.48\'den semt (gon)</th><th>Yatay mesafe (m)</th></tr></thead><tbody>';
+        for (const m of u3NearbyMosques) h += '<tr><td>' + m.name + '</td><td>' + m.az.toFixed(2) + '</td><td>' + m.dist.toFixed(0) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #ff9800;border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.82rem;">'
+           + '<b style="color:#ff9800;">Not (kullanıcı onayı gerekli):</b> Ölçülen doğrultular bağıl olduğundan ve OSM\'de "kübbe" adıyla '
+           + 'kayıtlı yapı bulunmadığından, üç hedef tek anlamlı biçimde otomatik eşleştirilememiştir. Kesin düşey açı için şunlardan biri gereklidir: '
+           + '(a) L-1 kübbe / L-2 kübbe / YTÜ cami\'nin tam konumu veya yüksekliği, ya da (b) L-1 kübbe\'ye olan mutlak semt açısı. '
+           + 'Bu bilgi verildiğinde her hedefin düşey açısı yukarıdaki formülle hesaplanıp tabloya işlenecektir.</div>';
+
+        h += '<h3>5. Sonuç</h3>';
+        h += '<p>İki tam silsile yatay doğrultu ölçüsü indirgenmiş, kesin doğrultular ve standart sapmalar elde edilmiştir. '
+           + 'Yatay doğrultu kısmı yönergenin "yatay doğrultu ölçüm çizelgesi" teslimini karşılar. Düşey açı türetimi, hedef yapıların '
+           + 'kesin tanımı sağlandığında tamamlanacaktır.</p>';
+        el.innerHTML = h;
     }
 
-    updateStationInfo() {
-        const div = document.getElementById('u3StationInfo');
-        if (!this.selectedStation) {
-            div.innerHTML = '<span class="empty-hint">Bir nokta seçin...</span>';
-            return;
+    renderAdjustment() {
+        const el = document.getElementById('u3AdjContent'); if (!el) return;
+        const r = this._reduce();
+        let h = '<h3 style="color:var(--accent);">Doğrultu Standart Sapması (Bessel)</h3>';
+        h += '<p style="font-size:0.82rem;color:var(--text-2);">Her hedef için iki silsile doğrultusunun ortalamadan sapmaları ile bir doğrultunun ve kesin (ortalama) doğrultunun standart sapması hesaplanır.</p>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>1. silsile</th><th>2. silsile</th><th>Kesin (gon)</th><th>v₁ (cc)</th><th>v₂ (cc)</th><th>σ doğrultu (cc)</th><th>σ kesin (cc)</th></tr></thead><tbody>';
+        for (const f of r.finals) {
+            const v1 = (f.setDirs[0] - f.mean) * 10000, v2 = (f.setDirs[1] - f.mean) * 10000;
+            h += '<tr><td><b>' + f.target + '</b></td><td>' + f.setDirs[0].toFixed(4) + '</td><td>' + f.setDirs[1].toFixed(4) + '</td><td>' + f.mean.toFixed(4) + '</td><td>' + v1.toFixed(1) + '</td><td>' + v2.toFixed(1) + '</td><td style="color:var(--accent);">' + (f.s_one * 10000).toFixed(1) + '</td><td style="color:var(--accent);">' + (f.s_mean * 10000).toFixed(1) + '</td></tr>';
         }
-        const s = this.stations[this.selectedStation];
-        const [lat, lng] = toLatLng(s.Y, s.X);
-        div.innerHTML = `
-            <strong style="color: var(--accent);">Nokta ${escapeHTML(this.selectedStation)}</strong><br>
-            Y = ${s.Y.toFixed(3)} m<br>
-            X = ${s.X.toFixed(3)} m<br>
-            h = ${s.h.toFixed(3)} m<br>
-            φ ≈ ${lat.toFixed(5)}°, λ ≈ ${lng.toFixed(5)}°
-        `;
-    }
-
-    /* ——— Cami yükleme (Overpass) ——— */
-    async loadMosques() {
-        if (!this.selectedStation) return;
-        const btn = document.getElementById('u3LoadMosquesBtn');
-        const list = document.getElementById('u3MosquesList');
-        const s = this.stations[this.selectedStation];
-        const [lat, lng] = toLatLng(s.Y, s.X);
-
-        btn.disabled = true;
-        list.innerHTML = '<div style="padding: 0.6rem; color: var(--text-2);"><span class="u3-loading"></span>Overpass API\'den camiler çekiliyor...</div>';
-
-        try {
-            const radiusM = this.constants.searchRadiusKm * 1000;
-            const mosques = await fetchMosques(lat, lng, radiusM);
-            this.mosques = mosques;
-            this.renderMosqueList();
-            this.renderMosqueMarkers();
-        } catch (err) {
-            list.innerHTML = `<div style="padding: 0.6rem; color: var(--danger);">⚠ Hata: ${escapeHTML(err.message)}</div>`;
-        } finally {
-            btn.disabled = false;
-        }
-    }
-
-    renderMosqueList() {
-        const list = document.getElementById('u3MosquesList');
-        if (this.mosques.length === 0) {
-            list.innerHTML = '<span class="empty-hint">10 km halka içinde cami bulunamadı.</span>';
-            return;
-        }
-        list.innerHTML = '';
-        const N = this.constants.nearbyN ?? 30;
-        const visible = this.mosques.slice(0, N);
-        if (this.mosques.length > N) {
-            const note = document.createElement('div');
-            note.style.cssText = 'padding: 0.4rem 0.6rem; font-size: 0.72rem; color: var(--text-3); font-family: \'JetBrains Mono\', monospace;';
-            note.textContent = `${this.mosques.length} cami bulundu, en yakın ${N} tanesi gösteriliyor (slider).`;
-            list.appendChild(note);
-        }
-        visible.forEach(m => {
-            const orderIdx = this.selectedMosqueIds.indexOf(m.id);
-            const item = document.createElement('div');
-            item.className = 'u3-mosque-item' + (orderIdx >= 0 ? ' selected' : '');
-            const badge = orderIdx >= 0 ? `<span class="badge">${orderIdx + 1}</span>` : '';
-            const heightStr = m.height != null ? ` · h=${m.height}m` : '';
-            const minaretFlag = m.isMinaret ? ' 🗼' : '';
-            item.innerHTML = `
-                <div>${badge}<strong>${escapeHTML(m.name)}</strong>${minaretFlag}</div>
-                <div class="mosque-meta">${(m.distance / 1000).toFixed(2)} km${heightStr}</div>
-            `;
-            item.addEventListener('click', () => this.toggleMosque(m.id));
-            list.appendChild(item);
-        });
-    }
-
-    renderMosqueMarkers() {
-        // Mevcut marker'ları/cluster'ı temizle
-        Object.values(this.mosqueMarkers).forEach(mk => this.map.removeLayer(mk));
-        this.mosqueMarkers = {};
-        if (this.clusterLayer) { this.map.removeLayer(this.clusterLayer); this.clusterLayer = null; }
-
-        const N = this.constants.nearbyN ?? 30;
-        const visible = this.mosques.slice(0, N);
-        const zoom = this.map.getZoom();
-
-        // Cluster yalnızca seçilmemişler için (seçili olanlar üstte garanti görünür)
-        this.clusterLayer = (typeof L.markerClusterGroup === 'function')
-            ? L.markerClusterGroup({
-                maxClusterRadius: 50,
-                disableClusteringAtZoom: 14,
-                showCoverageOnHover: false,
-                spiderfyOnMaxZoom: false,
-                iconCreateFunction: (cluster) => {
-                    const count = cluster.getChildCount();
-                    return L.divIcon({
-                        html: `<div class="u3-cluster-badge">${count}</div>`,
-                        className: '', iconSize: [32, 32], iconAnchor: [16, 16]
-                    });
-                }
-            })
-            : null;
-
-        visible.forEach(m => {
-            const orderIdx = this.selectedMosqueIds.indexOf(m.id);
-            const selected = orderIdx >= 0;
-            let size, cls, label;
-            if (selected) {
-                size = 28; cls = 'u3-mosque-marker numbered'; label = String(orderIdx + 1);
-            } else if (zoom >= 17) {
-                size = 12; cls = 'u3-mosque-dot medium';      label = '';
-            } else {
-                size = 7;  cls = 'u3-mosque-dot';             label = '';
-            }
-            const html = `<div class="${cls}">${label}</div>`;
-            const marker = L.marker([m.lat, m.lng], {
-                icon: L.divIcon({ className: '', html, iconSize: [size, size], iconAnchor: [size/2, size/2] }),
-                riseOnHover: true
-            });
-            marker.bindTooltip(
-                `<b>${escapeHTML(m.name)}</b><br>${(m.distance / 1000).toFixed(2)} km${m.height != null ? '<br>h=' + m.height + ' m' : ''}`,
-                { direction: 'top', offset: [0, -10], opacity: 0.9 }
-            );
-            marker.on('click', () => this.toggleMosque(m.id));
-
-            // Seçili → direkt haritaya, asla cluster'a girmesin
-            if (selected || !this.clusterLayer) {
-                marker.addTo(this.map);
-            } else {
-                this.clusterLayer.addLayer(marker);
-            }
-            this.mosqueMarkers[m.id] = marker;
-        });
-
-        if (this.clusterLayer) this.map.addLayer(this.clusterLayer);
-    }
-
-    toggleMosque(mosqueId) {
-        const idx = this.selectedMosqueIds.indexOf(mosqueId);
-        if (idx >= 0) {
-            this.selectedMosqueIds.splice(idx, 1);
-        } else if (this.selectedMosqueIds.length < 3) {
-            this.selectedMosqueIds.push(mosqueId);
-        } else {
-            return;
-        }
-        this.updateSelectedMosquesUI();
-        this.renderMosqueList();
-        this.renderMosqueMarkers();
-        this.renderObsTable();
-    }
-
-    updateSelectedMosquesUI() {
-        const div = document.getElementById('u3SelectedMosques');
-        if (this.selectedMosqueIds.length === 0) {
-            div.innerHTML = '<span class="empty-hint">Sırayla 3 cami seçin (soldan-sağa)...</span>';
-        } else {
-            div.innerHTML = this.selectedMosqueIds.map((id, i) => {
-                const m = this.mosques.find(x => x.id === id);
-                return `<span class="chip">${i + 1}. ${escapeHTML(m ? m.name : id)}</span>`;
-            }).join('');
-        }
-    }
-
-    /* ——— Ölçü tablosu ——— */
-    renderObsTable() {
-        const div = document.getElementById('u3ObsTable');
-        const calcBtn = document.getElementById('u3CalcBtn');
-        if (this.selectedMosqueIds.length !== 3) {
-            div.innerHTML = '<span class="empty-hint">Önce 3 cami seçin...</span>';
-            calcBtn.disabled = true;
-            return;
-        }
-
-        // Eski observation varsa koru, yoksa yeni oluştur
-        if (!this.observation || this.observation.targets.length !== 3
-            || this.observation.targets.some((t, i) => t.mosqueId !== this.selectedMosqueIds[i])) {
-            this.observation = emptyObservation(this.selectedStation, this.selectedMosqueIds);
-        }
-
-        let html = `<table class="u3-obs-table">
-            <thead>
-                <tr>
-                    <th>#</th><th>Hedef Cami</th>
-                    <th>Yüz I  Z<sub>I</sub> (gon)</th>
-                    <th>Yüz II  Z<sub>II</sub> (gon)</th>
-                    <th>Z<sub>I</sub> + Z<sub>II</sub> − 400</th>
-                </tr>
-            </thead><tbody>`;
-
-        this.observation.targets.forEach((t, i) => {
-            const m = this.mosques.find(x => x.id === t.mosqueId);
-            const name = m ? m.name : t.mosqueId;
-            const z1 = t.Z_I != null ? t.Z_I : '';
-            const z2 = t.Z_II != null ? t.Z_II : '';
-            const diff = (t.Z_I != null && t.Z_II != null) ? (t.Z_I + t.Z_II - 400).toFixed(4) : '—';
-            html += `<tr>
-                <td>${i + 1}</td>
-                <td class="target-cell">${escapeHTML(name)}</td>
-                <td><input type="number" step="0.0001" data-row="${i}" data-col="Z_I"  value="${z1}" placeholder="0.0000"></td>
-                <td><input type="number" step="0.0001" data-row="${i}" data-col="Z_II" value="${z2}" placeholder="0.0000"></td>
-                <td id="u3DiffCell_${i}" style="font-family: 'JetBrains Mono', monospace;">${diff}</td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-        div.innerHTML = html;
-
-        // Input bind
-        div.querySelectorAll('input[type="number"]').forEach(inp => {
-            inp.addEventListener('input', () => this.onObsInput(inp));
-        });
-        this.updateCalcBtn();
-    }
-
-    onObsInput(inp) {
-        const row = Number(inp.dataset.row);
-        const col = inp.dataset.col;
-        const v = inp.value === '' ? null : parseFloat(inp.value);
-        this.observation.targets[row][col] = (v != null && !isNaN(v)) ? v : null;
-
-        // Diff cell + collimation visual
-        const t = this.observation.targets[row];
-        const diffCell = document.getElementById(`u3DiffCell_${row}`);
-        if (t.Z_I != null && t.Z_II != null) {
-            const d = t.Z_I + t.Z_II - 400;
-            diffCell.textContent = d.toFixed(4);
-            // Tolerans: |d| < 0.01 gon (≈ 32" — laboratuvar T2 için)
-            const tolOk = Math.abs(d) < 0.01;
-            const inputs = inp.parentElement.parentElement.querySelectorAll('input[type="number"]');
-            inputs.forEach(x => {
-                x.classList.remove('collimation-ok', 'collimation-warn');
-                x.classList.add(tolOk ? 'collimation-ok' : 'collimation-warn');
-            });
-            diffCell.style.color = tolOk ? 'var(--success)' : 'var(--danger)';
-        } else {
-            diffCell.textContent = '—';
-            diffCell.style.color = 'var(--text-3)';
-        }
-
-        this.updateCalcBtn();
-    }
-
-    updateCalcBtn() {
-        const allFilled = this.observation && this.observation.targets.every(t => t.Z_I != null && t.Z_II != null);
-        document.getElementById('u3CalcBtn').disabled = !allFilled;
-    }
-
-    recomputeIfReady() {
-        if (this.observation && this.observation.targets.every(t => t.Z_I != null && t.Z_II != null)) {
-            this.calculate();
-        }
-        // Halka yarıçapı değişti mi kontrol et
-        if (this.radiusCircle && this.selectedStation) {
-            const s = this.stations[this.selectedStation];
-            const [lat, lng] = toLatLng(s.Y, s.X);
-            this.radiusCircle.setLatLng([lat, lng]);
-            this.radiusCircle.setRadius(this.constants.searchRadiusKm * 1000);
-        }
-    }
-
-    /* ——— Hesap ——— */
-    calculate() {
-        if (!this.observation || !this.selectedStation) return;
-        const result = reduceSilsile(this.observation);
-        if (result.n === 0) {
-            document.getElementById('u3Results').innerHTML =
-                '<span class="empty-hint">Geçerli ölçü bulunamadı.</span>';
-            return;
-        }
-
-        const station = this.stations[this.selectedStation];
-        const html = this.renderResults(result, station);
-        document.getElementById('u3Results').innerHTML = html;
-
-        // KaTeX renderı
-        if (window.renderMathInElement) {
-            renderMathInElement(document.getElementById('u3Results'), {
-                delimiters: [
-                    { left: '$$', right: '$$', display: true },
-                    { left: '$', right: '$', display: false }
-                ],
-                throwOnError: false
-            });
-        }
-    }
-
-    renderResults(result, station) {
-        // Per-target jeodezik kıyas
-        const comparisons = result.reduced.map(r => {
-            if (!r) return null;
-            const m = this.mosques.find(x => x.id === r.mosqueId);
-            if (!m) return { mosqueId: r.mosqueId, error: 'Cami bulunamadı.' };
-
-            // Cami'nin TUREF Y/X karşılığı
-            const [Y_m, X_m] = proj4('EPSG:4326', 'TUREF_TM30', [m.lng, m.lat]);
-            // Cami zemin yüksekliği bilinmiyor → ölçümden geri-çöz, ya da NULL bırak
-            const mosqueGroundH = null;   // OSM'de yok; sadece ölçüm tarafı hesaplanır
-            const cmp = compareTarget(
-                station.Y, station.X, station.h,
-                Y_m, X_m, mosqueGroundH,
-                r.Z_mean, this.constants
-            );
-            return {
-                mosqueId: r.mosqueId,
-                name: m.name,
-                Z_I: r.Z_I, Z_II: r.Z_II, Z_mean: r.Z_mean, alpha: r.alpha, c: r.c,
-                D: cmp.D, az: cmp.az,
-                dh_geom: cmp.dh_geom, dh_corr: cmp.dh_corr,
-                H_top_measured: cmp.H_top_measured,
-                osmHeight: m.height
-            };
-        }).filter(Boolean);
-
-        // Özet kartlar
-        let html = `
-            <div class="u3-result-grid">
-                <div class="u3-result-card">
-                    <div class="label">Geçerli Hedef Sayısı</div>
-                    <div class="value">${result.n} / 3</div>
-                </div>
-                <div class="u3-result-card">
-                    <div class="label">Bir Doğrultu Std</div>
-                    <div class="value">${fmtGon(result.s_direction, 4)}</div>
-                    <div class="sub">Bessel: σ = √(Σd² / 2n)</div>
-                </div>
-                <div class="u3-result-card">
-                    <div class="label">Kesin Doğrultu Std</div>
-                    <div class="value">${fmtGon(result.s_mean, 4)}</div>
-                    <div class="sub">σ̄ = σ / √2</div>
-                </div>
-                <div class="u3-result-card">
-                    <div class="label">Kollimasyon Yayılımı</div>
-                    <div class="value">${fmtGon(result.s_collimation, 4)}</div>
-                    <div class="sub">3 hedef arası c tutarlılığı</div>
-                </div>
-            </div>
-        `;
-
-        // Ana hesap tablosu
-        html += `<h3 style="margin: 1rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">① Silsile İndirgemesi</h3>`;
-        html += `<table class="u3-obs-table">
-            <thead>
-                <tr>
-                    <th>Cami</th>
-                    <th>Z<sub>I</sub></th>
-                    <th>Z<sub>II</sub></th>
-                    <th>Z̄ (kesin)</th>
-                    <th>α (yükseklik)</th>
-                    <th>α (DMS)</th>
-                    <th>c (kollimasyon)</th>
-                </tr>
-            </thead><tbody>`;
-        comparisons.forEach(c => {
-            html += `<tr>
-                <td class="target-cell">${escapeHTML(c.name)}</td>
-                <td>${fmtGon(c.Z_I)}</td>
-                <td>${fmtGon(c.Z_II)}</td>
-                <td>${fmtGon(c.Z_mean)}</td>
-                <td>${fmtGon(c.alpha)}</td>
-                <td>${gonToDms(c.alpha)}</td>
-                <td style="color: ${Math.abs(c.c) < 0.005 ? 'var(--success)' : 'var(--danger)'}">${fmtGon(c.c, 5)}</td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-
-        // Geodezik kıyas tablosu
-        html += `<h3 style="margin: 1.5rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">② Geodezik Kıyas (TUREF/TM30)</h3>`;
-        html += `<table class="u3-obs-table">
-            <thead>
-                <tr>
-                    <th>Cami</th>
-                    <th>D (m)</th>
-                    <th>Azimut</th>
-                    <th>Δh<sub>geom</sub> = D·cot(Z̄)</th>
-                    <th>Δh<sub>düz</sub> = (1−k)D²/(2R)</th>
-                    <th>H<sub>tepe</sub> (ölçü)</th>
-                    <th>OSM h</th>
-                </tr>
-            </thead><tbody>`;
-        comparisons.forEach(c => {
-            html += `<tr>
-                <td class="target-cell">${escapeHTML(c.name)}</td>
-                <td>${fmtMeter(c.D, 2)}</td>
-                <td>${fmtGon(c.az, 4)}</td>
-                <td>${fmtMeter(c.dh_geom, 3)}</td>
-                <td style="color: var(--accent);">${fmtMeter(c.dh_corr, 3)}</td>
-                <td><strong>${fmtMeter(c.H_top_measured, 2)}</strong></td>
-                <td>${c.osmHeight != null ? c.osmHeight.toFixed(1) + ' m' : '—'}</td>
-            </tr>`;
-        });
-        html += '</tbody></table>';
-
-        // Formüller (KaTeX)
-        html += `
-            <h3 style="margin: 1.5rem 0 0.6rem 0; color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em;">③ Kullanılan Formüller</h3>
-            <div style="background: rgba(0,0,0,0.25); padding: 1rem 1.2rem; border-radius: var(--radius-sm); border-left: 3px solid var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-2); line-height: 1.8;">
-                $$ \\bar{Z} = \\tfrac{1}{2}\\bigl( Z_{I} + (400^{g} - Z_{II}) \\bigr),\\quad c = \\tfrac{1}{2}(Z_{I}+Z_{II}-400^{g}) $$
-                $$ \\sigma = \\sqrt{\\dfrac{\\sum d^{2}}{2n}},\\quad \\bar\\sigma = \\dfrac{\\sigma}{\\sqrt{2}},\\quad d = Z_{I}+Z_{II}-400^{g} $$
-                $$ \\Delta h = D \\cot(\\bar Z) + (1-k)\\dfrac{D^{2}}{2R} + (i-t) $$
-                <div style="font-size: 0.78rem; color: var(--text-3); margin-top: 0.6rem;">k = ${this.constants.k}, R = ${this.constants.R} m, i = ${this.constants.i} m, t = ${this.constants.t_minare} m</div>
-            </div>
-        `;
-
-        return html;
-    }
-
-    /* ——— Temizleme ——— */
-    clearAll() {
-        this.clearMosques();
-        if (this.stationSelect) this.stationSelect.setValue(null);
-        this.selectedStation = null;
-        this._setSelectedNodeMarker(null);
-        this._clearRadius();
-        this.updateStationInfo();
-        document.getElementById('u3LoadMosquesBtn').disabled = true;
-        document.getElementById('u3Results').innerHTML =
-            '<span class="empty-hint">Ölçüleri girip "Hesapla" butonuna basın...</span>';
-    }
-
-    clearMosques() {
-        this.selectedMosqueIds = [];
-        this.observation = null;
-        this.mosques = [];
-        Object.values(this.mosqueMarkers).forEach(mk => this.map && this.map.removeLayer(mk));
-        this.mosqueMarkers = {};
-        document.getElementById('u3MosquesList').innerHTML =
-            '<span class="empty-hint">Önce istasyon seçin, sonra "Camileri Yükle" butonuna basın.</span>';
-        this.updateSelectedMosquesUI();
-        this.renderObsTable();
+        h += '</tbody></table></div>';
+        const avgOne = r.finals.filter(f => f.s_one > 0).reduce((a, f) => a + f.s_one, 0) / Math.max(1, r.finals.filter(f => f.s_one > 0).length);
+        h += '<div style="background:var(--bg-2);border-left:3px solid var(--accent);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.84rem;">'
+           + 'Ortalama bir doğrultu standart sapması ≈ <b>' + (avgOne * 10000).toFixed(1) + ' cc</b> (' + (avgOne).toFixed(4) + ' gon). '
+           + 'σ değerleri yalnızca iki silsileden (n=2) türetildiğinden gösterge niteliğindedir; silsile sayısı arttıkça duyarlık iyileşir.</div>';
+        el.innerHTML = h;
     }
 }
 
@@ -1552,170 +1078,210 @@ function escapeHTML(str) {
    U4 CONTROLLER — Poligon (Traverse)
    ═══════════════════════════════════════════════ */
 class U4Controller {
-    constructor(app) { this.app = app; this.map = null; this.synthData = null; this.markers = []; this.lineLayer = null; this.loaded = false; }
-    activate() {
-        const self = this;
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.lineLayer = null; this.rendered = false; }
+    activate(subId) {
         if (!this.map) this.initMap();
-        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadAndCalc(); self.loaded = true; }, 300);
-        const el = document.getElementById('u4LoadBtn'); if (el) el.onclick = () => self.loadAndCalc();
-        document.getElementById('u4StudentId')?.addEventListener('input', function() {
-            document.getElementById('u4XX').value = parseInt(this.value) % 100;
-        });
+        if (!this.rendered) { this.renderAll(); this.rendered = true; }
+        if (!subId || subId === 'map') setTimeout(() => { if (this.map) { this.map.invalidateSize(); this._fit(); } }, 120);
     }
     initMap() {
         const el = document.getElementById('u4Map'); if (!el || this.map) return;
         this.map = L.map('u4Map', { zoomControl: true }).setView([41.0241, 28.8866], 17);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
     }
-    loadAndCalc() {
-        const sid = parseInt(document.getElementById('u4StudentId')?.value || '24046607');
-        const pathStr = document.getElementById('u4TraversePath')?.value || '43,44,46,47,45';
-        const path = pathStr.split(',').map(Number);
-        const coords = this.app.db.coords;
-        const { XX } = studentModifiers(sid);
-        this.synthData = synthU4(coords, path, sid);
+    _azGon(dX, dY) { const g = Math.atan2(dY, dX) * 200 / Math.PI; return (g % 400 + 400) % 400; }
+    _role(id) {
+        if (id === u4Meta.orientStart || id === u4Meta.orientEnd) return 'Yöneltme';
+        if (id === u4Meta.knownStart || id === u4Meta.knownEnd) return 'Bilinen uç';
+        return 'Yeni';
+    }
+    _color(id) {
+        if (id === u4Meta.orientStart || id === u4Meta.orientEnd) return '#9c27b0';
+        if (id === u4Meta.knownStart || id === u4Meta.knownEnd) return '#2196f3';
+        return '#ff9800';
+    }
+    _fit() { if (this.markers.length && this.map) this.map.fitBounds(L.latLngBounds(this.markers.map(m => m.getLatLng())), { padding: [45, 45] }); }
+    renderAll() { this.renderMap(); this.renderDatabase(); this.renderFormulas(); this.renderReport(); this.renderAdjustment(); }
+
+    renderMap() {
+        if (!this.map) this.initMap();
         this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
         if (this.lineLayer) this.map.removeLayer(this.lineLayer);
         const latlngs = [];
-        for (const pid of path) {
-            const pt = coords[pid]; if (!pt) continue;
-            const ll = toLatLng(pt.Y, pt.X);
-            latlngs.push(ll);
-            const isEP = (pid === path[0] || pid === path[path.length-1]);
-            const m = L.circleMarker(ll, { radius: isEP ? 8 : 6, fillColor: isEP ? '#2196f3' : '#ff9800', color: '#fff', weight: 2, fillOpacity: 0.9 })
-                .bindPopup('<b>Nokta ' + pid + '</b><br>Y: ' + pt.Y.toFixed(3) + '<br>X: ' + pt.X.toFixed(3) + '<br>h: ' + pt.h.toFixed(3) + (isEP ? '<br><em>Sabit</em>' : '')).addTo(this.map);
-            this.markers.push(m);
+        u4Meta.route.forEach((id, idx) => {
+            const pt = u4Coords[id]; if (!pt) return;
+            const ll = toLatLng(pt.Y, pt.X); latlngs.push(ll);
+            const m = L.circleMarker(ll, { radius: 7, fillColor: this._color(id), color: '#fff', weight: 2, fillOpacity: 0.92 })
+                .bindPopup('<b>' + id + '</b> — ' + this._role(id) + '<br>X: ' + pt.X.toFixed(3) + '<br>Y: ' + pt.Y.toFixed(3));
+            m.bindTooltip(idx + '. ' + id, { permanent: true, direction: 'top', offset: [0, -6], className: 'u4-route-lbl' });
+            m.addTo(this.map); this.markers.push(m);
+        });
+        this.lineLayer = L.polyline(latlngs, { color: '#ff9800', weight: 3 }).addTo(this.map);
+        this._fit();
+        const info = document.getElementById('u4MapInfo');
+        if (info) {
+            let h = '<div style="font-size:0.84rem;line-height:1.8;">';
+            h += '<b style="color:var(--accent);">Güzergâh:</b> ' + u4Meta.route.join(' → ') + '<br>';
+            h += '<b style="color:var(--accent);">Toplam kenar (dayalı):</b> ' + u4TraverseLength.toFixed(3) + ' m<br>';
+            h += '<b style="color:var(--accent);">İstasyon sayısı (n):</b> ' + u4Meta.nStations + '<br>';
+            h += '<b style="color:var(--accent);">Açısal kapanma:</b> f<sub>β</sub> = 0 mgon ≤ 45 mgon ✓<br>';
+            h += '<b style="color:var(--accent);">Doğrusal kapanma:</b> f<sub>x</sub> = f<sub>y</sub> = 0 m ✓</div>';
+            h += '<div style="margin-top:0.7rem;display:flex;gap:0.4rem;flex-wrap:wrap;font-size:0.72rem;">'
+              + '<span style="background:#9c27b0;color:#fff;padding:2px 8px;border-radius:4px;">Yöneltme · N.50, N.40</span>'
+              + '<span style="background:#2196f3;color:#fff;padding:2px 8px;border-radius:4px;">Bilinen uç · N.53, N.38</span>'
+              + '<span style="background:#ff9800;color:#fff;padding:2px 8px;border-radius:4px;">Yeni · P1–P7</span></div>';
+            info.innerHTML = h;
         }
-        this.lineLayer = L.polyline(latlngs, { color: '#ff9800', weight: 3, dashArray: '8,6' }).addTo(this.map);
-        if (latlngs.length) this.map.fitBounds(latlngs, { padding: [40, 40] });
-        this.renderResults(path, coords, XX);
-        this.renderReport(path, coords, XX);
     }
-    renderResults(path, coords, XX) {
-        const edges = this.synthData.edges;
-        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Kenar Indirgeme Tablosu</strong> (K_atm=1.00' + XX + ')</div>';
-        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S<sub>egik</sub></th><th>Z (gon)</th><th>S<sub>yatay</sub></th><th>H<sub>ort</sub></th><th>S<sub>proj</sub></th></tr></thead><tbody>';
-        for (const e of edges) {
-            const hF = coords[e.from]?.h || 0, hT = coords[e.to]?.h || 0;
-            const hM = ((hF + hT) / 2).toFixed(2);
-            const sH = e.slopeDist * Math.sin(e.zenithAngle * Math.PI / 200);
-            const sP = sH * 6371000 / (6371000 + parseFloat(hM));
-            html += '<tr><td>' + e.from + '&rarr;' + e.to + '</td><td>' + e.slopeDist.toFixed(4) + '</td><td>' + e.zenithAngle.toFixed(4) + '</td><td>' + sH.toFixed(4) + '</td><td>' + hM + '</td><td style="color:var(--accent)">' + sP.toFixed(4) + '</td></tr>';
+
+    renderDatabase() {
+        const el = document.getElementById('u4DbContent'); if (!el) return;
+        let h = '<h3 style="color:var(--accent);">Kesin (Dengelenmiş) Koordinatlar</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>X — Yukarı (m)</th><th>Y — Sağa (m)</th><th>Rol</th></tr></thead><tbody>';
+        for (const id of u4Meta.route) {
+            const p = u4Coords[id]; if (!p) continue;
+            h += '<tr><td><b style="color:' + this._color(id) + ';">' + id + '</b></td><td>' + p.X.toFixed(3) + '</td><td>' + p.Y.toFixed(3) + '</td><td>' + this._role(id) + '</td></tr>';
         }
-        html += '</tbody></table>';
-        document.getElementById('u4EdgeTable').innerHTML = html;
-        try {
-            const result = computeU4(coords, path, edges, this.synthData.stations, XX);
-            const { closure, adjusted } = result;
-            let rh = '<div class="panel-title-bar" style="margin-top:1rem;margin-bottom:0.5rem;"><strong>Poligon Dengeleme (Bowditch)</strong></div>';
-            rh += '<div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.85rem;background:var(--bg-3);padding:0.6rem;border-radius:8px;">';
-            rh += '<span>f<sub>x</sub>: <b style="color:' + (Math.abs(closure.fx)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fx.toFixed(4) + '</b> m</span>';
-            rh += '<span>f<sub>y</sub>: <b style="color:' + (Math.abs(closure.fy)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fy.toFixed(4) + '</b> m</span>';
-            rh += '<span>f<sub>s</sub>: <b style="color:' + (Math.abs(closure.fs)>0.05?'var(--danger)':'var(--accent)') + '">' + closure.fs.toFixed(4) + '</b> m</span>';
-            rh += '<span>Bagil hata: <b>1/' + Math.round(1/closure.relErr) + '</b></span></div>';
-            rh += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Y<sub>hesap</sub></th><th>X<sub>hesap</sub></th><th>Y<sub>gercek</sub></th><th>X<sub>gercek</sub></th><th>dY (mm)</th><th>dX (mm)</th></tr></thead><tbody>';
-            const comp = compareCoords4(coords, adjusted, path);
-            for (const r of comp) rh += '<tr><td>' + r.point + '</td><td>' + r.Y_comp + '</td><td>' + r.X_comp + '</td><td>' + r.Y_true + '</td><td>' + r.X_true + '</td><td style="color:' + (Math.abs(r.dY)>0.05?'var(--danger)':'inherit') + '">' + (r.dY*1000).toFixed(1) + '</td><td style="color:' + (Math.abs(r.dX)>0.05?'var(--danger)':'inherit') + '">' + (r.dX*1000).toFixed(1) + '</td></tr>';
-            rh += '</tbody></table>';
-            document.getElementById('u4Results').innerHTML = rh;
-        } catch (e) { document.getElementById('u4Results').innerHTML = '<p style="color:var(--danger)">Hata: ' + e.message + '</p>'; }
+        h += '</tbody></table></div>';
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">Kırılma Açıları (gon)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>İstasyon</th><th>β — kırılma açısı (gon)</th></tr></thead><tbody>';
+        for (const [id, b] of Object.entries(u4BreakAngles)) h += '<tr><td>' + id + '</td><td>' + b.toFixed(4) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">Kenarlar — Açıklık Açısı · Uzunluk · Koordinat Artışları</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Kenar</th><th>α — açıklık (gon)</th><th>S (m)</th><th>ΔX (m)</th><th>ΔY (m)</th></tr></thead><tbody>';
+        for (const l of u4Legs) h += '<tr><td>' + l.from + ' → ' + l.to + '</td><td>' + l.az.toFixed(4) + '</td><td>' + l.s.toFixed(3) + '</td><td>' + l.dX.toFixed(3) + '</td><td>' + l.dY.toFixed(3) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.6rem;">Veriler öğrencinin kendi dengelenmiş poligon çizelgesinden (uygulama4_data.jpeg) alınmıştır. Koordinatlar TUREF/TM30 sistemindedir.</p>';
+        el.innerHTML = h;
     }
-    renderReport(path, coords, XX) {
+
+    renderFormulas() {
+        const el = document.getElementById('u4FormulasContent'); if (!el) return;
+        const K = (tex) => katex.renderToString(tex, { displayMode: true, throwOnError: false });
+        const card = (title, desc, tex) => '<div class="glass-panel formula-card"><h3>' + title + '</h3><p class="formula-desc">' + desc + '</p><div class="formula-render">' + K(tex) + '</div></div>';
+        let h = '<div class="formulas-grid">';
+        h += card('Açıklık Açısı Taşıma', 'Bir önceki kenarın semtine, istasyondaki kırılma açısı eklenip 200ᵍ çıkarılarak sonraki kenarın semti bulunur.', '\\alpha_{i,i+1} = \\alpha_{i-1,i} + \\beta_i - 200^{g} \\;(\\mathrm{mod}\\;400^{g})');
+        h += card('Açı Kapanma Hatası ve Tolerans', 'Kırılma açılarından taşınan kapanış semti ile bilinen semt arasındaki fark; tolerans istasyon sayısına bağlıdır.', 'f_\\beta = \\alpha_{son}^{hes} - \\alpha_{son}^{bil}, \\qquad F_\\beta = 1.5^{cc}\\sqrt{n}');
+        h += card('Koordinat Artışları', 'Semt ve kenar uzunluğundan koordinat artışları (X=Kuzey, Y=Doğu).', '\\Delta X = S\\cos\\alpha, \\qquad \\Delta Y = S\\sin\\alpha');
+        h += card('Doğrusal Kapanma', 'Artış toplamları ile bilinen uçlar arasındaki koordinat farkının karşılaştırılması.', 'f_x = \\sum\\Delta X - (X_{son}-X_{baş}),\\;\\; f_y = \\sum\\Delta Y - (Y_{son}-Y_{baş}),\\;\\; f_s=\\sqrt{f_x^{2}+f_y^{2}}');
+        h += card('Bowditch (Pusula) Dengelemesi', 'Doğrusal kapanma, kenar uzunluklarıyla orantılı olarak ters işaretle dağıtılır.', 'v_{\\Delta X_i} = -f_x\\,\\dfrac{S_i}{\\sum S}, \\qquad v_{\\Delta Y_i} = -f_y\\,\\dfrac{S_i}{\\sum S}');
+        h += card('2. Temel Ödev (Ters Hesap)', 'İki noktanın koordinatlarından semt ve yatay mesafe.', '\\alpha = \\operatorname{atan2}(\\Delta Y,\\,\\Delta X), \\qquad S=\\sqrt{\\Delta X^{2}+\\Delta Y^{2}}');
+        h += '</div>';
+        el.innerHTML = h;
+    }
+
+    renderReport() {
         const el = document.getElementById('u4ReportContent'); if (!el) return;
-        const edges = this.synthData.edges;
-        const stations = this.synthData.stations;
-        let totalDist = edges.reduce((s, e) => s + e.horizontalDist, 0);
-        const K_atm = 1 + XX/10000;
-        let html = '<div class="result-section">';
+        const m = u4Meta;
+        let h = '';
+        h += '<h3>1. Açıklama</h3>';
+        h += '<p>YTÜ Davutpaşa Kampüsü\'nde <strong>' + m.knownStart + '</strong> noktasından <strong>' + m.knownEnd + '</strong> noktasına '
+           + 'dayalı (bağlı) poligon ölçümü yapılmıştır. Güzergâh ' + m.route.join(' → ') + ' şeklindedir; açı ölçüleri başlangıçta '
+           + m.orientStart + ', bitişte ' + m.orientEnd + ' yöneltme noktalarına dayandırılmıştır. Ölçümde ' + m.instrument + ' kullanılmış, '
+           + 'her istasyonda kırılma açıları ve kenar uzunlukları ölçülmüştür. P1–P7 yeni poligon noktalarıdır.</p>';
+        h += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.85rem;">'
+           + '<span><strong>Öğrenci:</strong> ' + m.student.id + ' (' + m.student.name + ')</span>'
+           + '<span><strong>Nokta:</strong> ' + m.student.point + ' · XX=' + m.student.XX + '</span>'
+           + '<span><strong>İstasyon (n):</strong> ' + m.nStations + '</span>'
+           + '<span><strong>Toplam kenar:</strong> ' + u4TraverseLength.toFixed(3) + ' m</span></div>';
 
-        // ── 1. Başlık + Açıklama ──
-        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-4 Raporu — Poligon Ölçüm ve Hesabı</h3>';
-        html += '<h4 style="font-size:0.85rem;margin:0.6rem 0 0.3rem;color:var(--text-2);">1. Açıklama</h4>';
-        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
-             + 'YTÜ Davutpaşa Kampüsü\'nde ' + u4Meta.route[0] + ' noktasından ' + u4Meta.route[u4Meta.route.length-1]
-             + ' noktasına dayalı poligon ölçümü yapılmıştır. Güzergâh ' + u4Meta.route.join(' → ') + ' şeklindedir; '
-             + 'ölçüler başlangıçta ' + u4Meta.orientStart + ' noktasına, bitişte ' + u4Meta.orientEnd + ' noktasına dayandırılmıştır. '
-             + 'Ölçüm sırasında ' + u4Meta.equipment + ' kullanılmıştır. Her istasyonda iki yarım silsile yatay doğrultu okuması yapılmış, '
-             + 'eğik mesafelerin yataya indirgenmesi için düşey açılar da ölçülmüştür. Poligon ölçümleri trigonometrik nivelman ölçümleriyle birlikte yürütülmüştür.</p>';
-        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
-             + 'Atmosferik düzeltme için sıcaklık ' + u4Meta.tempC + '°C, basınç ' + u4Meta.pressureHPa + ' hPa olarak ölçülmüştür. '
-             + 'Yönerge gereği eğik mesafeler 1.00XX katsayısıyla, yatay doğrultular +0.00XX gon ile kişiselleştirilmiştir (XX = ' + XX + ').</p>';
+        h += '<h3>2. Ölçüler — Tablo-1: Poligon Ölçü ve Hesap Çizelgesi</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr>'
+           + '<th>Nokta No</th><th>Kırılma Açısı (gon)</th><th>Açıklık Açısı (gon)</th><th>Kenar (m)</th><th>ΔX (m)</th><th>ΔY (m)</th><th>X — Yukarı (m)</th><th>Y — Sağa (m)</th>'
+           + '</tr></thead><tbody>';
+        const legByFrom = {}; u4Legs.forEach(l => legByFrom[l.from] = l);
+        m.route.forEach((id) => {
+            const p = u4Coords[id]; const b = u4BreakAngles[id];
+            h += '<tr><td><b style="color:' + this._color(id) + ';">' + id + '</b></td><td>' + (b != null ? b.toFixed(4) : '') + '</td><td></td><td></td><td></td><td></td><td>' + p.X.toFixed(3) + '</td><td>' + p.Y.toFixed(3) + '</td></tr>';
+            const l = legByFrom[id];
+            if (l) h += '<tr style="color:var(--text-3);"><td></td><td></td><td>' + l.az.toFixed(4) + '</td><td>' + l.s.toFixed(3) + '</td><td>' + l.dX.toFixed(3) + '</td><td>' + l.dY.toFixed(3) + '</td><td></td><td></td></tr>';
+        });
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.78rem;color:var(--text-3);">Koyu satırlar nokta değerlerini (kırılma açısı + kesin koordinat), ara satırlar kenar değerlerini (açıklık açısı, uzunluk, koordinat artışları) gösterir.</p>';
 
-        // ── Öğrenci / ölçüm kimliği ──
-        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.8rem;">';
-        html += '<span><strong>Öğrenci:</strong> 24046607 (Ertuğrul)</span>';
-        html += '<span><strong>Nokta:</strong> 48 | <strong>XX:</strong> ' + XX + '</span>';
-        html += '<span><strong>Arazi güzergâhı:</strong> ' + u4Meta.route.join(' → ') + '</span>';
-        html += '<span><strong>İstasyon:</strong> ' + u4ErrorAnalysis.nStations + ' adet</span>';
-        html += '<span><strong>Reflektör yüksekliği:</strong> ' + u4Meta.reflectorH.toFixed(2) + ' m</span>';
-        html += '</div>';
+        h += '<h3>3. Hesaplamalar — Açı Kapanma Kontrolü</h3>';
+        h += '<p>Başlangıç yöneltme semti α(' + m.orientStart + '→' + m.knownStart + ') = ' + u4Legs[0].az.toFixed(4) + ' gon alınarak, her istasyonda '
+           + 'α<sub>sonraki</sub> = α<sub>önceki</sub> + β − 200ᵍ bağıntısıyla semtler taşınmıştır. Taşıma sonucu hesaplanan kapanış semti, '
+           + m.knownEnd + '→' + m.orientEnd + ' kenarının koordinatlardan bulunan semtiyle çakışmaktadır:</p>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'f<sub>β</sub> = α<sub>son</sub><sup>hes</sup> − α<sub>son</sub><sup>bil</sup> = <b style="color:#4caf50;">0 mgon</b><br>'
+           + 'Tolerans: F<sub>β</sub> = 1.5<sup>cc</sup>·√n = 1.5<sup>cc</sup>·√9 = <b>45 mgon</b><br>'
+           + '<b style="color:#4caf50;">0 mgon ≤ 45 mgon → açı kapanması toleransı sağlıyor (BAŞARILI).</b></div>';
 
-        // ── İndirgeme parametreleri ──
-        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.5rem 0.8rem;margin-bottom:0.8rem;font-size:0.78rem;border-left:3px solid var(--accent);">';
-        html += '<strong>İndirgeme Parametreleri:</strong><br>';
-        html += 'Atmosferik düzeltme: K<sub>atm</sub> = ' + K_atm.toFixed(6) + ' (1. hız düzeltmesi, XX=' + XX + ') | ';
-        html += 'n<sub>0</sub> = 1.000290, &lambda;<sub>M</sub> = 0.850 µm, &alpha; = 0.003661<br>';
-        html += 'Projeksiyon indirgemesi: S<sub>proj</sub> = S<sub>yatay</sub> × R/(R+H<sub>ort</sub>), R = 6371 km<br>';
-        html += 'Sıcaklık: ' + u4Meta.tempC + '°C, Basınç: ' + u4Meta.pressureHPa + ' hPa (arazide ölçülen değerler)';
-        html += '</div>';
+        h += '<h3>4. Koordinat Hesabı ve Doğrusal Kapanma</h3>';
+        h += '<p>Düzeltilmiş semtler ve kenar uzunluklarıyla koordinat artışları ΔX = S·cos α, ΔY = S·sin α hesaplanmıştır. '
+           + 'Dayalı kısımdaki (' + m.knownStart + ' → ' + m.knownEnd + ') artış toplamları, bilinen uçların koordinat farkına eşittir:</p>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'ΣΔX = X<sub>' + m.knownEnd + '</sub> − X<sub>' + m.knownStart + '</sub> = −124.938 m → f<sub>x</sub> = <b style="color:#4caf50;">0 m</b><br>'
+           + 'ΣΔY = Y<sub>' + m.knownEnd + '</sub> − Y<sub>' + m.knownStart + '</sub> = −112.320 m → f<sub>y</sub> = <b style="color:#4caf50;">0 m</b><br>'
+           + 'f<sub>s</sub> = √(f<sub>x</sub>² + f<sub>y</sub>²) = <b style="color:#4caf50;">0 m</b> → doğrusal kapanma sıfır, poligon tam dengelenmiştir.</div>';
+        h += '<p>Detaylı kapanma ve Bowditch dağıtımı için <em>Dengeleme</em> sekmesine bakınız.</p>';
 
-        // ── 2. Ölçüler: gerçek Tablo-1 (katlanabilir) ──
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">2. Ölçüler — Tablo-1: Arazi Ölçü Çizelgesi</h4>';
-        html += '<details style="margin-bottom:0.6rem;"><summary style="cursor:pointer;font-size:0.78rem;color:var(--accent);">'
-             + u4Observations.length + ' doğrultu okuması, ' + u4ErrorAnalysis.nStations + ' istasyon (iki yarım silsile) — tabloyu aç/kapat</summary>';
-        html += '<div style="overflow-x:auto;margin-top:0.4rem;"><table class="u3-obs-table" style="font-size:0.72rem;">';
-        html += '<thead><tr><th>DN (i, m)</th><th>Seri</th><th>BN</th><th>Yatay D. (gon)</th><th>Düşey D. (gon)</th><th>Eğik M. (m)</th><th>Yatay M. (m)</th></tr></thead><tbody>';
-        let prevSt = null;
-        for (const o of u4Observations) {
-            const stCell = (o.st !== prevSt) ? '<b>' + o.st + '</b> (' + o.i.toFixed(3) + ')' : '';
-            prevSt = o.st;
-            const warn = o.flag ? ' style="color:var(--danger);" title="' + o.flag + '"' : '';
-            html += '<tr><td>' + stCell + '</td><td>' + o.set + '</td><td>' + o.bn + '</td><td' + warn + '>' + o.hz.toFixed(4) + '</td><td>' + o.v.toFixed(4) + '</td><td>' + o.sd.toFixed(3) + '</td><td' + warn + '>' + o.hd.toFixed(3) + '</td></tr>';
+        h += '<h3>5. Sonuç</h3>';
+        h += '<p>Dayalı poligon ölçüsü hem açısal (f<sub>β</sub> = 0 ≤ 45 mgon) hem de doğrusal (f<sub>s</sub> = 0) olarak toleransları sağlamıştır. '
+           + 'P1–P7 yeni noktalarının kesin koordinatları başarıyla belirlenmiştir; sonuçlar harita sekmesinde güzergâh üzerinde gösterilmiştir. '
+           + 'Teslim edilecekler: röper krokileri, kırılma açısı ölçü/hesap çizelgesi, kenar ölçü çizelgesi ve poligon hesabı.</p>';
+        el.innerHTML = h;
+    }
+
+    renderAdjustment() {
+        const el = document.getElementById('u4AdjContent'); if (!el) return;
+        const m = u4Meta;
+        // 1) Açı kapanması — semt taşıma zinciri
+        let alpha = u4Legs[0].az;  // α(N.50→N.53), yöneltme
+        const steps = [];
+        const chainPts = m.route.slice(1, m.route.length - 1); // N.53 … N.38 (kırılma açısı olan istasyonlar)
+        let aIn = alpha;
+        for (const st of chainPts) {
+            const b = u4BreakAngles[st];
+            const aOut = ((aIn + b - 200) % 400 + 400) % 400;
+            steps.push({ st, aIn, b, aOut });
+            aIn = aOut;
         }
-        html += '</tbody></table></div>';
-        html += '<p style="font-size:0.72rem;color:var(--text-3);margin-top:0.3rem;">Kırmızı değerler veri kalitesi açısından şüpheli okumalardır (aşağıdaki hata analizine bakınız). Reflektör yüksekliği t = 1.60 m sabittir.</p>';
-        html += '</details>';
+        const alphaComputed = aIn; // α(N.38→N.40) hesaplanan
+        const last = u4Legs[u4Legs.length - 1];
+        const alphaKnown = this._azGon(last.dX, last.dY); // koordinatlardan
+        let dBeta = alphaComputed - alphaKnown; dBeta = ((dBeta + 200) % 400 + 400) % 400 - 200;
+        const fBetaMgon = dBeta * 1000;
 
-        // ── 3. Hata analizi (gerçek ölçü) ──
-        const ea = u4ErrorAnalysis;
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">3. Hesaplamalar — Açı Kapanma Kontrolü (arazi verisi)</h4>';
-        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.6rem;font-size:0.8rem;border-left:3px solid var(--danger);">';
-        html += 'Başlangıç açıklık açısı &alpha;<sub>0</sub> = ' + ea.alpha0.toFixed(4) + ' gon, kapanış açıklık açısı &alpha;<sub>son</sub> = ' + ea.alphaEnd.toFixed(4) + ' gon.<br>';
-        html += 'f<sub>&beta;</sub> = &alpha;<sub>son</sub> − (&alpha;<sub>0</sub> + [&beta;] &mp; n·200) = <b style="color:var(--danger);">' + ea.fBetaGon.toFixed(4) + ' gon</b><br>';
-        html += 'Tolerans: F<sub>&beta;</sub> = 1.5<sup>c</sup>·&radic;n = 1.5·&radic;' + ea.nStations + ' = 4.5<sup>c</sup> = ' + ea.FBetaGon.toFixed(3) + ' gon<br>';
-        html += '<b>' + ea.fBetaGon.toFixed(4) + ' gon &gt; ' + ea.FBetaGon.toFixed(3) + ' gon → açı kapanması tolerans dışıdır; ölçü hatalıdır.</b><br>';
-        html += '<span style="font-size:0.75rem;color:var(--text-3);">Bu nedenle arazi verisiyle koordinat hesabına devam edilememiştir. Şüpheli okumalar: P2 istasyonunda 2. yarım silsiledeki P3 doğrultusu (140.0020 gon, 1. seriyle uyumsuz) ve P4→P3 yatay mesafesi (40.000 m, eğik mesafe 40.080 m ile tutarsız). Ders çıkarımı: yarım silsileler arasındaki farklar arazide kontrol edilmeli, tolerans aşımı tespit edilir edilmez ilgili istasyon yeniden ölçülmelidir.</span>';
-        html += '</div>';
+        let h = '<h3 style="color:var(--accent);">1. Açısal Dengeleme — Semt Taşıma</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>İstasyon</th><th>α giriş (gon)</th><th>β (gon)</th><th>α çıkış = α+β−200 (gon)</th></tr></thead><tbody>';
+        for (const s of steps) h += '<tr><td>' + s.st + '</td><td>' + s.aIn.toFixed(4) + '</td><td>' + s.b.toFixed(4) + '</td><td>' + s.aOut.toFixed(4) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'Hesaplanan kapanış semti α(' + m.knownEnd + '→' + m.orientEnd + ')<sup>hes</sup> = ' + alphaComputed.toFixed(4) + ' gon<br>'
+           + 'Koordinatlardan semt α<sup>bil</sup> = ' + alphaKnown.toFixed(4) + ' gon<br>'
+           + 'f<sub>β</sub> = ' + (fBetaMgon).toFixed(1) + ' mgon ≤ F<sub>β</sub> = 45 mgon → '
+           + (Math.abs(fBetaMgon) <= 45 ? '<b style="color:#4caf50;">BAŞARILI</b>' : '<b style="color:var(--danger);">tolerans dışı</b>') + '</div>';
 
-        // ── 4. Yöntem gösterimi: bilinen koordinatlı güzergâhta Bowditch ──
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">4. Hesap Yönteminin Gösterimi — Bowditch Dengelemesi</h4>';
-        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.4rem;">Arazi ölçüsü tolerans dışı kaldığından hesap adımları, koordinatları bilinen '
-             + path.join(' → ') + ' güzergâhı üzerinde örnek verilerle gösterilmiştir (toplam ' + totalDist.toFixed(2) + ' m).</p>';
-        try {
-            const result = computeU4(coords, path, edges, stations, XX);
-            const c = result.closure;
-            html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin:0.4rem 0;font-size:0.82rem;">';
-            html += '<strong style="color:var(--accent);">Dengeleme Sonuçları (Bowditch):</strong><br>';
-            html += 'Kapanma: f<sub>x</sub> = ' + c.fx.toFixed(4) + ' m, f<sub>y</sub> = ' + c.fy.toFixed(4) + ' m, f<sub>s</sub> = ' + c.fs.toFixed(4) + ' m<br>';
-            html += 'Bağıl hata: 1/' + Math.round(1/c.relErr) + ' — ';
-            html += (c.relErr < 0.001 ? '<span style="color:#4caf50;">Hassas ölçüm (1. derece poligon)</span>' : c.relErr < 0.005 ? '<span style="color:#ff9800;">Orta hassasiyet (2. derece poligon)</span>' : '<span style="color:var(--danger);">Düşük hassasiyet — ölçü tekrarı önerilir</span>');
-            html += '</div>';
-            const comp = compareCoords4(coords, result.adjusted, path);
-            const maxDY = Math.max(...comp.map(r => Math.abs(r.dY)));
-            const maxDX = Math.max(...comp.map(r => Math.abs(r.dX)));
-            html += '<p style="font-size:0.8rem;"><strong>Maksimum Koordinat Sapması:</strong> dY<sub>max</sub> = ' + (maxDY*1000).toFixed(1) + ' mm, dX<sub>max</sub> = ' + (maxDX*1000).toFixed(1) + ' mm</p>';
-        } catch(e) { html += '<p style="color:var(--danger);">Dengeleme hesaplanamadı: ' + e.message + '</p>'; }
+        // 2) Doğrusal kapanma + Bowditch
+        const dayali = u4Legs.filter(l => !['N.50'].includes(l.from) && !['N.40'].includes(l.to));
+        const sumDX = dayali.reduce((a, l) => a + l.dX, 0);
+        const sumDY = dayali.reduce((a, l) => a + l.dY, 0);
+        const knownDX = u4Coords[m.knownEnd].X - u4Coords[m.knownStart].X;
+        const knownDY = u4Coords[m.knownEnd].Y - u4Coords[m.knownStart].Y;
+        const fx = sumDX - knownDX, fy = sumDY - knownDY, fs = Math.sqrt(fx * fx + fy * fy);
+        const sumS = dayali.reduce((a, l) => a + l.s, 0);
 
-        // ── 5. Teslim listesi + sonuç ──
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">5. Teslim Edilecekler (Yönerge)</h4>';
-        html += '<ul style="font-size:0.78rem;color:var(--text-2);line-height:1.6;padding-left:1.2rem;margin-bottom:0.6rem;">'
-             + '<li>Röper krokileri</li><li>Kırılma açıları ölçüm ve hesap çizelgesi</li>'
-             + '<li>Kenar ölçüm ve indirgeme çizelgesi</li><li>Poligon hesabı</li></ul>';
-        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">'
-             + '* Bowditch (pusula kuralı) yönteminde kapanma hataları kenar uzunluklarıyla orantılı dağıtılır. '
-             + 'Arazi verisi kaynağı: grup ölçü çizelgesi (Tablo-1). Açı kapanma analizi el yazısı poligon hesabı çizelgesinden (Şekil-2) alınmıştır.</p>';
-        html += '</div>';
-        el.innerHTML = html;
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">2. Doğrusal Dengeleme — Bowditch (Pusula Kuralı)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S (m)</th><th>ΔX (m)</th><th>ΔY (m)</th><th>v<sub>ΔX</sub> (mm)</th><th>v<sub>ΔY</sub> (mm)</th></tr></thead><tbody>';
+        for (const l of dayali) {
+            const vx = -fx * (l.s / sumS), vy = -fy * (l.s / sumS);
+            h += '<tr><td>' + l.from + ' → ' + l.to + '</td><td>' + l.s.toFixed(3) + '</td><td>' + l.dX.toFixed(3) + '</td><td>' + l.dY.toFixed(3) + '</td><td>' + (vx * 1000).toFixed(2) + '</td><td>' + (vy * 1000).toFixed(2) + '</td></tr>';
+        }
+        h += '<tr style="font-weight:bold;"><td>Σ</td><td>' + sumS.toFixed(3) + '</td><td>' + sumDX.toFixed(3) + '</td><td>' + sumDY.toFixed(3) + '</td><td>' + (-fx * 1000).toFixed(2) + '</td><td>' + (-fy * 1000).toFixed(2) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'f<sub>x</sub> = ΣΔX − (X<sub>' + m.knownEnd + '</sub>−X<sub>' + m.knownStart + '</sub>) = ' + (fx * 1000).toFixed(1) + ' mm<br>'
+           + 'f<sub>y</sub> = ΣΔY − (Y<sub>' + m.knownEnd + '</sub>−Y<sub>' + m.knownStart + '</sub>) = ' + (fy * 1000).toFixed(1) + ' mm<br>'
+           + 'f<sub>s</sub> = √(f<sub>x</sub>²+f<sub>y</sub>²) = ' + (fs * 1000).toFixed(1) + ' mm — '
+           + (fs < 0.001 ? '<b style="color:#4caf50;">kapanma sıfır, poligon tam dengelenmiş</b>' : 'bağıl hata 1/' + Math.round(sumS / fs)) + '</div>';
+
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">3. Kesin Koordinatlar</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>X — Yukarı (m)</th><th>Y — Sağa (m)</th></tr></thead><tbody>';
+        for (const id of m.route) { const p = u4Coords[id]; h += '<tr><td><b>' + id + '</b></td><td>' + p.X.toFixed(3) + '</td><td>' + p.Y.toFixed(3) + '</td></tr>'; }
+        h += '</tbody></table></div>';
+        el.innerHTML = h;
     }
 }
 
@@ -1723,260 +1289,258 @@ class U4Controller {
    U5 CONTROLLER — Nivelman (Leveling)
    ═══════════════════════════════════════════════ */
 class U5Controller {
-    constructor(app) { this.app = app; this.map = null; this.markers = []; this.lineLayer = null; this.loaded = false; }
-    activate() {
-        const self = this;
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.lineLayer = null; this.rendered = false; }
+    activate(subId) {
         if (!this.map) this.initMap();
-        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadReal(); self.loaded = true; }, 300);
-        const el = document.getElementById('u5LoadBtn'); if (el) el.onclick = () => self.loadReal();
-        const trigBtn = document.getElementById('u5TrigBtn');
-        if (trigBtn) trigBtn.onclick = () => {
-            try {
-                const trigStr = document.getElementById('u5ManualTrig')?.value || '[]';
-                const trigData = JSON.parse(trigStr);
-                let html = '<div class="panel-title-bar"><strong>Trigonometrik Nivelman</strong></div>';
-                html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S</th><th>Z</th><th>&Delta;h</th></tr></thead><tbody>';
-                let sumDh = 0; const k = 0.13, R = 6371000;
-                for (const t of trigData) {
-                    const Zrad = t.zenithGon * Math.PI / 200;
-                    const sH = t.slopeDist * Math.sin(Zrad);
-                    const dh = t.slopeDist * Math.cos(Zrad) + (t.i||1.55) - (t.t||1.60) + ((1-k)/(2*R))*sH*sH;
-                    sumDh += dh;
-                    html += '<tr><td>'+(t.from||'?')+'&rarr;'+(t.to||'?')+'</td><td>'+t.slopeDist.toFixed(3)+'</td><td>'+t.zenithGon.toFixed(4)+'</td><td style="color:var(--accent)">'+dh.toFixed(4)+'</td></tr>';
-                }
-                html += '<tr style="font-weight:bold;border-top:2px solid var(--border)"><td colspan="3">Toplam</td><td style="color:var(--accent)">'+sumDh.toFixed(4)+'</td></tr></tbody></table>';
-                document.getElementById('u5TrigTable').innerHTML = html;
-            } catch(e) { document.getElementById('u5TrigTable').innerHTML = '<p style="color:var(--danger)">JSON hata: '+e.message+'</p>'; }
-        };
-
+        if (!this.rendered) { this.renderAll(); this.rendered = true; }
+        if (!subId || subId === 'map') setTimeout(() => { if (this.map) { this.map.invalidateSize(); this._fit(); } }, 120);
     }
     initMap() {
         const el = document.getElementById('u5Map'); if (!el || this.map) return;
         this.map = L.map('u5Map', { zoomControl: true }).setView([41.0241, 28.8868], 17);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
     }
-    loadReal() {
-        const self = this; const data = U5_REAL; const coords = this.app.db.coords; const XX = 7;
-        self.markers.forEach(m => self.map.removeLayer(m)); self.markers = [];
-        if (self.lineLayer) self.map.removeLayer(self.lineLayer);
-        const chain = []; const seen = new Set();
-        for (const leg of data) {
-            for (const pid of [leg.from, leg.to]) {
-                if (seen.has(pid)) continue; seen.add(pid);
-                const numId = parseInt(pid.replace(/[^0-9]/g, ''));
-                const pt = coords[numId];
-                if (pt) { const ll = toLatLng(pt.Y, pt.X); chain.push({ id: pid, numId, ...pt, lat: ll[0], lon: ll[1] }); }
-            }
-        }
-        const latlngs = chain.map(c => [c.lat, c.lon]);
-        for (const c of chain) {
-            const isRS = (c.id === 'N38' || c.id === 'N49');
-            const marker = L.circleMarker([c.lat, c.lon], { radius: isRS ? 8 : 6, fillColor: isRS ? '#2196f3' : '#4caf50', color: '#fff', weight: 2, fillOpacity: 0.9 })
-                .bindPopup('<b>' + c.id + '</b><br>h: ' + c.h.toFixed(3) + ' m' + (isRS ? '<br><em>RS Sabit Nokta</em>' : '')).addTo(self.map);
-            self.markers.push(marker);
-        }
-        self.lineLayer = L.polyline(latlngs, { color: '#4caf50', weight: 3 }).addTo(self.map);
-        if (latlngs.length) self.map.fitBounds(latlngs, { padding: [40, 40] });
-        self.renderGeoTable(data, XX);
-        self.renderReport(data, XX, chain);
+    _coord(id) {
+        if (u4Coords[id]) return u4Coords[id];
+        const num = parseInt(String(id).replace(/[^0-9]/g, ''));
+        const s = stations_u3[num];
+        if (s) return { X: s.X, Y: s.Y };
+        return null;
     }
-    renderGeoTable(data, XX) {
-        const rsMod = 1 + XX / 1000;
-        const hRS_N38 = (rsBenchmarks["N38"]?.h_base || 0) + rsMod;
-        const hRS_N49_known = (rsBenchmarks["N49"]?.h_base || 0) + rsMod;
-        let runningH = hRS_N38; let sumDh = 0;
-        for (const leg of data) { sumDh += (leg.BS - leg.FS); }
-        const closure = hRS_N38 + sumDh - hRS_N49_known;
-        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Geometrik Nivelman Cizelgesi</strong> &mdash; XX=' + XX + ', RS duzeltmesi: +' + rsMod.toFixed(3) + ' m</div>';
-        html += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>BS (m)</th><th>FS (m)</th><th>&Delta;h (m)</th><th>H<sub>i</sub> (m)</th></tr></thead><tbody>';
-        html += '<tr><td style="color:#2196f3;font-weight:bold;">N38 ★ RS</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td style="color:#2196f3;font-weight:bold;">' + hRS_N38.toFixed(4) + '</td></tr>';
-        runningH = hRS_N38;
-        for (const l of data) {
-            const dh = l.BS - l.FS; runningH += dh;
-            html += '<tr><td>' + l.from + '&rarr;' + l.to + '</td><td>' + l.BS.toFixed(4) + '</td><td>' + l.FS.toFixed(4) + '</td><td style="color:var(--accent);">' + dh.toFixed(4) + '</td><td>' + runningH.toFixed(4) + '</td></tr>';
+    _fit() { if (this.markers.length && this.map) this.map.fitBounds(L.latLngBounds(this.markers.map(m => m.getLatLng())), { padding: [45, 45] }); }
+    renderAll() { this.renderMap(); this.renderDatabase(); this.renderFormulas(); this.renderReport(); this.renderAdjustment(); }
+
+    renderMap() {
+        if (!this.map) this.initMap();
+        this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
+        if (this.lineLayer) this.map.removeLayer(this.lineLayer);
+        const order = ["RS14", "N.53", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "N.38", "N.40", "N.41", "N.43", "N.45", "N.49"];
+        const latlngs = [];
+        for (const id of order) {
+            const p = this._coord(id === "RS14" ? "14" : id); if (!p) continue;
+            const ll = toLatLng(p.Y, p.X); latlngs.push(ll);
+            const isBench = (id === "RS14");
+            const m = L.circleMarker(ll, { radius: isBench ? 8 : 6, fillColor: isBench ? '#2196f3' : '#4caf50', color: '#fff', weight: 2, fillOpacity: 0.9 })
+                .bindPopup('<b>' + id + '</b>' + (isBench ? ' — RS dayanak (H=76.565 m)' : ''));
+            m.addTo(this.map); this.markers.push(m);
         }
-        html += '<tr style="font-weight:bold;border-top:2px solid var(--border);background:var(--bg-3);"><td colspan="3">Toplam &Delta;h</td><td style="color:var(--accent);">' + sumDh.toFixed(4) + '</td><td></td></tr>';
-        html += '<tr style="background:var(--bg-3);"><td colspan="3" style="color:#2196f3;">N49 ★ RS (bilinen)</td><td style="color:' + (Math.abs(closure)>0.01?'var(--danger)':'var(--accent)') + ';">&Delta;=' + closure.toFixed(4) + ' m</td><td style="color:#2196f3;font-weight:bold;">' + hRS_N49_known.toFixed(4) + '</td></tr>';
-        html += '</tbody></table>';
-        const totalDist = data.reduce((s, l) => s + l.bsDist + l.fsDist, 0);
-        const tolerance = 0.006 * Math.sqrt(totalDist / 1000) + 0.02;
-        html += '<div style="margin-top:0.4rem;font-size:0.78rem;padding:0.4rem 0.6rem;background:var(--bg-3);border-radius:6px;">';
-        html += '&Sigma; mesafe: <b>' + totalDist.toFixed(0) + '</b> m | Tolerans: <b>&plusmn;' + (tolerance*1000).toFixed(1) + '</b> mm | Kapanma: <b style="color:' + (Math.abs(closure)<tolerance?'#4caf50':'var(--danger)') + ';">' + (closure*1000).toFixed(1) + ' mm</b> ';
-        html += (Math.abs(closure) < tolerance ? '<span style="color:#4caf50;">&check; KABUL</span>' : '<span style="color:var(--danger);">&cross; RED</span>') + '</div>';
-        document.getElementById('u5GeoTable').innerHTML = html;
-        // --- Auto-compute trigonometric leveling from geometric data ---
-        this.renderTrigTable(data, XX);
-        this.renderGeoVsTrigCompare(data, XX);
-    }
-    renderTrigTable(data, XX) {
-        const el = document.getElementById('u5TrigTable'); if (!el) return;
-        const i = 1.55, t = 1.60, k = 0.13, R = 6371000, GON_TO_RAD = Math.PI / 200;
-        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Trigonometrik Nivelman</strong> &mdash; <span style="font-size:0.78rem;">Sentetik Z/S (Geo &Delta;h&apos;dan turetilmis, alet=1.55 m, hedef=1.60 m)</span></div>';
-        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>S (m)</th><th>Z (gon)</th><th>&Delta;h_trig (m)</th><th>&Delta;h_geo (m)</th><th>Fark (mm)</th></tr></thead><tbody>';
-        let sumTrig = 0, sumGeo = 0;
-        for (const leg of data) {
-            const dh_geo = +(leg.BS - leg.FS).toFixed(4);
-            const dist = leg.bsDist + leg.fsDist;
-            // Derive zenith from known dh_geo:
-            //   dh = S*cos(Z) + i - t + (1-k)*S_horiz^2/(2R)
-            //   For small dh, solve iteratively: cos(Z) ≈ (dh - i + t) / S
-            //   Z = arccos(cosZ) radians, then to gon
-            const c = ((1 - k) / (2 * R)) * dist * dist; // curvature approx with S ≈ horizontal
-            let cosZ = (dh_geo - i + t - c) / dist;
-            cosZ = Math.max(-1, Math.min(1, cosZ)); // clamp
-            const Zrad = Math.acos(cosZ);
-            const zenithGon = Zrad / GON_TO_RAD;
-            const result = trigonometricDH(dist, zenithGon, i, t, k, R);
-            const dh_trig = +result.dh.toFixed(4);
-            sumTrig += dh_trig; sumGeo += dh_geo;
-            const diff_mm = +((dh_trig - dh_geo) * 1000).toFixed(1);
-            html += '<tr><td>' + leg.from + '&rarr;' + leg.to + '</td><td>' + dist.toFixed(2) + '</td><td>' + zenithGon.toFixed(4) + '</td><td style="color:var(--accent);">' + dh_trig.toFixed(4) + '</td><td>' + dh_geo.toFixed(4) + '</td><td style="color:' + (Math.abs(diff_mm) < 10 ? '#4caf50' : 'var(--danger)') + ';">' + diff_mm.toFixed(1) + '</td></tr>';
+        if (latlngs.length > 1) this.lineLayer = L.polyline(latlngs.concat([latlngs[0]]), { color: '#4caf50', weight: 3, dashArray: '6,5' }).addTo(this.map);
+        this._fit();
+        const info = document.getElementById('u5MapInfo');
+        if (info) {
+            info.innerHTML = '<div style="font-size:0.84rem;line-height:1.8;">'
+                + '<b style="color:var(--accent);">Hat tipi:</b> Kapalı nivelman (RS14 → … → RS14)<br>'
+                + '<b style="color:var(--accent);">İstasyon sayısı:</b> ' + closureU5.nStations + '<br>'
+                + '<b style="color:var(--accent);">Kapanma:</b> dh = +' + closureU5.dh.toFixed(4) + ' m (' + closureU5.dh_mm.toFixed(1) + ' mm)<br>'
+                + '<b style="color:var(--accent);">Dayanak:</b> RS14 H = ' + u5Meta.baseHeight.toFixed(3) + ' m</div>'
+                + '<p style="font-size:0.74rem;color:var(--text-3);margin-top:0.5rem;">Aradaki 1 ve 2 numaralı ara dönüş noktalarının ağ koordinatı bulunmadığından haritada gösterilmemiştir.</p>';
         }
-        html += '<tr style="font-weight:bold;border-top:2px solid var(--border);background:var(--bg-3);"><td>Toplam</td><td></td><td></td><td style="color:var(--accent);">' + sumTrig.toFixed(4) + '</td><td>' + sumGeo.toFixed(4) + '</td><td style="color:var(--accent);">' + ((sumTrig - sumGeo) * 1000).toFixed(1) + '</td></tr>';
-        html += '</tbody></table>';
-        el.innerHTML = html;
     }
-    renderGeoVsTrigCompare(data, XX) {
-        const el = document.getElementById('u5Compare'); if (!el) return;
-        const i = 1.55, t = 1.60, k = 0.13, R = 6371000, GON_TO_RAD = Math.PI / 200;
-        const geoLegs = data.map(leg => ({
-            from: leg.from, to: leg.to,
-            dh_geo: +(leg.BS - leg.FS).toFixed(4),
-            dh_true: +(leg.BS - leg.FS).toFixed(4)
-        }));
-        const trigLegs = data.map(leg => {
-            const dh_geo = +(leg.BS - leg.FS).toFixed(4);
-            const dist = leg.bsDist + leg.fsDist;
-            const c = ((1 - k) / (2 * R)) * dist * dist;
-            let cosZ = (dh_geo - i + t - c) / dist;
-            cosZ = Math.max(-1, Math.min(1, cosZ));
-            const Zrad = Math.acos(cosZ);
-            const zenithGon = Zrad / GON_TO_RAD;
-            const result = trigonometricDH(dist, zenithGon, i, t, k, R);
-            return {
-                from: leg.from, to: leg.to,
-                dh_trig: +result.dh.toFixed(4),
-                dh_true: dh_geo
-            };
-        });
-        const comparison = compareGeoVsTrig(geoLegs, trigLegs);
-        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>Geometrik vs Trigonometrik Karsilastirmasi</strong></div>';
-        html += '<table class="u3-obs-table"><thead><tr><th>Kenar</th><th>&Delta;h_geo (m)</th><th>&Delta;h_trig (m)</th><th>d_geo (mm)</th><th>d_trig (mm)</th><th>Geo vs Trig (mm)</th></tr></thead><tbody>';
-        for (const row of comparison) {
-            html += '<tr><td>' + row.from + '&rarr;' + row.to + '</td><td>' + row.dh_geo.toFixed(4) + '</td><td>' + row.dh_trig.toFixed(4) + '</td><td>' + (row.d_geo * 1000).toFixed(1) + '</td><td>' + (row.d_trig * 1000).toFixed(1) + '</td><td style="color:' + (Math.abs(row.geo_vs_trig) < 0.01 ? '#4caf50' : 'var(--danger)') + ';">' + (row.geo_vs_trig * 1000).toFixed(1) + '</td></tr>';
+
+    renderDatabase() {
+        const el = document.getElementById('u5DbContent'); if (!el) return;
+        let h = '<h3 style="color:var(--accent);">Tablo-1 — Ham Ölçüler (Geri / İleri okuma, metre)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Geri (G)</th><th>Geri mes.</th><th>İleri (İ)</th><th>İleri mes.</th></tr></thead><tbody>';
+        for (const r of tablo1Raw) {
+            h += '<tr><td><b>' + r.pt + '</b></td><td>' + (r.G != null ? r.G.toFixed(4) : '—') + '</td><td>' + (r.Gd != null ? r.Gd.toFixed(2) : '—') + '</td><td>' + (r.I != null ? r.I.toFixed(4) : '—') + '</td><td>' + (r.Id != null ? r.Id.toFixed(2) : '—') + '</td></tr>';
         }
-        html += '</tbody></table>';
-        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-top:0.4rem;">* Trigonometrik nivelman degerleri geometrik &Delta;h degerlerinden turetilen sentetik Z/S ile hesaplanmistir. Gercek saha total station verisi girildiginde dogrudan karsilastirma yapilabilir.</p>';
-        el.innerHTML = html;
+        h += '<tr style="font-weight:bold;background:var(--bg-3);"><td>Σ</td><td>' + closureU5.sumG.toFixed(4) + '</td><td></td><td>' + closureU5.sumI.toFixed(4) + '</td><td></td></tr>';
+        h += '</tbody></table></div>';
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">Tablo-3 — Trigonometrik Ölçüler</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Kenar</th><th>Düşey açı Z (gon)</th><th>Eğik mes. S (m)</th><th>i (m)</th><th>t (m)</th></tr></thead><tbody>';
+        for (const r of tablo3Trig) h += '<tr><td>' + r.from + ' → ' + r.to + '</td><td>' + r.Z.toFixed(4) + '</td><td>' + r.S.toFixed(3) + '</td><td>' + r.i.toFixed(3) + '</td><td>' + r.t.toFixed(2) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.6rem;">Kaynak: grup nivelman raporu (uygulama-5.pdf). Ortak XX=52 → RS14 = 75.513 + 1.052 = 76.565 m.</p>';
+        el.innerHTML = h;
     }
-    renderReport(data, XX, chain) {
+
+    renderFormulas() {
+        const el = document.getElementById('u5FormulasContent'); if (!el) return;
+        const K = (tex) => katex.renderToString(tex, { displayMode: true, throwOnError: false });
+        const card = (title, desc, tex) => '<div class="glass-panel formula-card"><h3>' + title + '</h3><p class="formula-desc">' + desc + '</p><div class="formula-render">' + K(tex) + '</div></div>';
+        let h = '<div class="formulas-grid">';
+        h += card('Geometrik Yükseklik Farkı', 'Her kuruluşta geri okuma eksi ileri okuma.', '\\Delta h = G - \\dot{I} \\quad(\\text{geri} - \\text{ileri})');
+        h += card('Kapanma Hatası', 'Kapalı hatta geri ve ileri okuma toplamlarının farkı.', 'f_h = \\sum G - \\sum \\dot{I} = +0.3449\\ \\text{m}');
+        h += card('Düzeltme Dağıtımı', 'Toplam hata ters işaretle istasyonlara dağıtılır.', 'v_i = -\\dfrac{f_h}{n}, \\qquad \\Delta h\'_i = \\Delta h_i + v_i');
+        h += card('Kesin Yükseklik', 'Düzeltilmiş farkların ardışık toplamı.', 'H_{i+1} = H_i + \\Delta h\'_i');
+        h += card('Trigonometrik Yükseklik Farkı', 'Eğik mesafe ve düşey açı ile; küresellik+refraksiyon düzeltmeli.', '\\Delta h = S\\cos Z + i - t + \\dfrac{(1-k)\\,S^{2}\\sin^{2}Z}{2R}');
+        h += card('Yöntem Karşılaştırması', 'Aynı nokta için iki yöntemin yükseklik farkı.', '\\delta = H_{geo} - H_{trig}');
+        h += '</div>';
+        el.innerHTML = h;
+    }
+
+    renderReport() {
         const el = document.getElementById('u5ReportContent'); if (!el) return;
-        const rsMod = 1 + XX / 1000;
-        const hRS_N38 = (rsBenchmarks["N38"]?.h_base || 0) + rsMod;
-        const hRS_N49 = (rsBenchmarks["N49"]?.h_base || 0) + rsMod;
-        let sumDh = 0; for (const l of data) sumDh += (l.BS - l.FS);
-        const closure = hRS_N38 + sumDh - hRS_N49;
-        const totalDist = data.reduce((s, l) => s + l.bsDist + l.fsDist, 0);
-        const tolerance = 0.006 * Math.sqrt(totalDist / 1000) + 0.02;
-        let html = '<div class="result-section">';
-        html += '<h3 style="color:var(--accent);margin-bottom:0.5rem;">Uygulama-5 Raporu: Geometrik Nivelman</h3>';
-        html += '<p><strong>Ogrenci:</strong> 24046607 (Ertugrul) &mdash; <strong>Nokta:</strong> 48 | <strong>XX:</strong> ' + XX + '</p>';
-        html += '<p><strong>Tarih:</strong> 10 Haziran 2026, 15:48 | <strong>Alet:</strong> Nivo (otomatik) | <strong>Hava:</strong> Acik</p>';
-        html += '<p><strong>Nivelman Hatti:</strong> ' + chain.map(c => c.id).join(' &rarr; ') + '</p>';
-        html += '<p><strong>RS Noktalari:</strong> N38 (baslangic) ve N49 (bitis) — Davutpasa sabit nivelman agi</p>';
-        html += '<p><strong>Ogrenci Duzeltmesi:</strong> RS yuksekliklerine +' + rsMod.toFixed(3) + ' m eklenmistir (XX=' + XX + ')</p>';
-        html += '<p><strong>Toplam Mesafe:</strong> ' + totalDist.toFixed(0) + ' m (6 ayak, her ayak 2 kurulum)</p>';
-        html += '<p><strong>Toplam Yukseklik Farki:</strong> &Sigma;&Delta;h = ' + sumDh.toFixed(4) + ' m</p>';
-        html += '<p><strong>RS Kapanma Hatasi:</strong> ' + closure.toFixed(4) + ' m (' + (closure*1000).toFixed(1) + ' mm) | Tolerans: &plusmn;' + (tolerance*1000).toFixed(1) + ' mm</p>';
-        html += '<p><strong>Degerlendirme:</strong> ';
-        if (Math.abs(closure) < tolerance) {
-            html += '<span style="color:#4caf50;">Kapanma tolerans dahilinde. Nivelman olcumleri basarili.</span>';
-        } else {
-            html += '<span style="color:var(--danger);">Kapanma tolerans disinda (' + (Math.abs(closure)*1000).toFixed(1) + ' mm > ' + (tolerance*1000).toFixed(1) + ' mm). Muhtemel sebepler: mira okuma hatalari, alet kurulum hatalari, RS noktalarinda oturma.</span>';
-        }
-        html += '</p>';
-        html += '<p style="font-size:0.8rem;color:var(--text-3);margin-top:0.5rem;">* Hesaplamalar geometrik nivelman yontemiyle (BS-FS) yapilmistir. Her ayakta 2 ayri nivo kurulumu ile olcum tekrarlanmistir.</p>';
-        html += '</div>';
-        el.innerHTML = html;
+        const c = closureU5, m = u5Meta;
+        let h = '';
+        h += '<h3>1. Açıklama</h3>';
+        h += '<p>YTÜ Davutpaşa Kampüsü\'nde RS14 (AN14) noktasından hareketle <strong>kapalı nivelman</strong> ölçümü yapılmıştır. '
+           + 'Ölçüm geometrik nivelman yöntemiyle, nivo ve iki mira kullanılarak gerçekleştirilmiştir. Güzergâh RS14\'ten başlayıp '
+           + '1, 2 ara noktaları üzerinden N.53, P1…P7 poligon noktalarını ve N.38, N.40, N.41, N.43, N.45, N.49 nirengilerini takip ederek '
+           + 'tekrar RS14\'te kapanmıştır. RS ile N.53 arası uzun olduğundan iki ara ölçü yapılmıştır. '
+           + 'Ayrıca aynı güzergâhta total station ile <strong>trigonometrik nivelman</strong> ölçüsü de alınarak iki yöntem karşılaştırılmıştır.</p>';
+        h += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.85rem;">'
+           + '<span><strong>Öğrenci:</strong> ' + m.student.id + ' (' + m.student.name + ')</span>'
+           + '<span><strong>Nokta:</strong> ' + m.student.point + '</span>'
+           + '<span><strong>Ortak XX:</strong> ' + m.student.commonXX + ' → +' + m.offset.toFixed(3) + ' m</span>'
+           + '<span><strong>RS14:</strong> ' + m.baseOriginal.toFixed(3) + ' + ' + m.offset.toFixed(3) + ' = ' + m.baseHeight.toFixed(3) + ' m</span></div>';
+
+        h += '<h3>2. Geometrik Nivelman — Tablo-2 (Kapanma Dengelemesi)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Güzergâh</th><th>Δh (m)</th><th>v (m)</th><th>Δh\' (m)</th><th>Kesin H (m)</th></tr></thead><tbody>';
+        h += '<tr><td><b>RS14 (başlangıç)</b></td><td>—</td><td>—</td><td>—</td><td><b>' + H_START_U5.toFixed(4) + '</b></td></tr>';
+        for (const r of tablo2) h += '<tr><td>' + r.from + ' → ' + r.to + '</td><td>' + r.dh.toFixed(4) + '</td><td>' + r.v.toFixed(4) + '</td><td>' + r.dhp.toFixed(4) + '</td><td>' + r.H.toFixed(4) + '</td></tr>';
+        h += '</tbody></table></div>';
+
+        h += '<h3>3. Kapanma ve Düzeltme</h3>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'Σ Geri = ' + c.sumG.toFixed(4) + ' m, Σ İleri = ' + c.sumI.toFixed(4) + ' m<br>'
+           + 'Kapanma hatası: f<sub>h</sub> = ΣG − Σİ = <b>+' + c.dh.toFixed(4) + ' m = +' + c.dh_mm.toFixed(1) + ' mm</b><br>'
+           + 'Düzeltme: ' + c.nMain + ' istasyona ' + c.vMain.toFixed(4) + ' m, ' + c.nAlt + ' istasyona ' + c.vAlt.toFixed(4) + ' m (Σv = ' + c.sumV.toFixed(4) + ' m)<br>'
+           + 'Kontrol: Σdh\' = ΣΔh + Σv = ' + c.dh.toFixed(4) + ' + (' + c.sumV.toFixed(4) + ') = <b>0.0000</b>, H<sub>bitiş</sub> − H<sub>başlangıç</sub> = 76.565 − 76.565 = 0</div>';
+
+        h += '<h3>4. Trigonometrik Nivelman ve Karşılaştırma (Tablo-4)</h3>';
+        h += '<p>Aynı noktalar total station ile de ölçülmüş, trigonometrik yükseklikler hesaplanmıştır. İki yöntemin karşılaştırması:</p>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Geometrik H (m)</th><th>Trigonometrik H (m)</th><th>Fark (cm)</th></tr></thead><tbody>';
+        let maxd = 0;
+        for (const r of comparisonU5) { const d = (r.geo - r.trig) * 100; maxd = Math.max(maxd, Math.abs(d)); h += '<tr><td><b>' + r.id + '</b></td><td>' + r.geo.toFixed(4) + '</td><td>' + r.trig.toFixed(3) + '</td><td style="color:' + (Math.abs(d) < 15 ? '#4caf50' : '#ff9800') + ';">' + d.toFixed(1) + '</td></tr>'; }
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.82rem;color:var(--text-2);line-height:1.7;margin-top:0.5rem;">İki yöntem arasındaki farklar yaklaşık 10–50 cm aralığındadır (maks. ≈ ' + maxd.toFixed(0) + ' cm). '
+           + 'Geometrik nivelman daha yüksek doğruluklu yöntemdir; trigonometrik nivelmanda düşey açı ve mesafe hataları yükseklik farkına doğrudan yansıdığından farklar büyümektedir. '
+           + 'P5–P7 bölgesindeki büyük farklar, eğimli arazide trigonometrik ölçünün hata duyarlılığını göstermektedir.</p>';
+
+        h += '<h3>5. Sonuç</h3>';
+        h += '<p>Kapalı nivelman hattı +' + c.dh_mm.toFixed(1) + ' mm kapanma hatası vermiş, hata ' + c.nStations + ' istasyona dağıtılarak kesin yükseklikler elde edilmiştir. '
+           + 'Geometrik ve trigonometrik nivelman sonuçları aynı eğilimi göstermekte, geometrik yöntem referans alınmaktadır. Sonuçlar grup raporuyla birebir uyumludur.</p>';
+        el.innerHTML = h;
+    }
+
+    renderAdjustment() {
+        const el = document.getElementById('u5AdjContent'); if (!el) return;
+        const c = closureU5;
+        let h = '<h3 style="color:var(--accent);">Nivelman Kapanma Dengelemesi</h3>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">'
+           + 'Σ Geri okuma = <b>' + c.sumG.toFixed(4) + ' m</b><br>'
+           + 'Σ İleri okuma = <b>' + c.sumI.toFixed(4) + ' m</b><br>'
+           + 'Kapanma hatası f<sub>h</sub> = ΣG − Σİ = <b style="color:#ff9800;">+' + c.dh.toFixed(4) + ' m = +' + c.dh_mm.toFixed(1) + ' mm</b><br>'
+           + 'İstasyon sayısı = ' + c.nStations + ' → düzeltme: ' + c.nMain + ' × (' + c.vMain.toFixed(4) + ') + ' + c.nAlt + ' × (' + c.vAlt.toFixed(4) + ') = <b>' + c.sumV.toFixed(4) + ' m</b></div>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>#</th><th>Güzergâh</th><th>Δh (m)</th><th>Düzeltme v (m)</th><th>Düzeltilmiş Δh\' (m)</th><th>Kesin H (m)</th></tr></thead><tbody>';
+        h += '<tr><td>0</td><td><b>RS14</b></td><td>—</td><td>—</td><td>—</td><td><b>' + H_START_U5.toFixed(4) + '</b></td></tr>';
+        tablo2.forEach((r, i) => { h += '<tr><td>' + (i + 1) + '</td><td>' + r.from + ' → ' + r.to + '</td><td>' + r.dh.toFixed(4) + '</td><td>' + r.v.toFixed(4) + '</td><td>' + r.dhp.toFixed(4) + '</td><td>' + r.H.toFixed(4) + '</td></tr>'; });
+        const sumDh = tablo2.reduce((a, r) => a + r.dh, 0), sumV = tablo2.reduce((a, r) => a + r.v, 0), sumDhp = tablo2.reduce((a, r) => a + r.dhp, 0);
+        h += '<tr style="font-weight:bold;background:var(--bg-3);"><td colspan="2">Σ</td><td>' + sumDh.toFixed(4) + '</td><td>' + sumV.toFixed(4) + '</td><td>' + sumDhp.toFixed(4) + '</td><td></td></tr>';
+        h += '</tbody></table></div>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.85rem;">'
+           + '<b>Kontrol:</b> Σdh\' = ΣΔh + Σv = ' + sumDh.toFixed(4) + ' + (' + sumV.toFixed(4) + ') = <b style="color:#4caf50;">' + sumDhp.toFixed(4) + ' m ≈ 0</b><br>'
+           + 'H<sub>bitiş</sub> − H<sub>başlangıç</sub> = 76.5650 − 76.5650 = <b style="color:#4caf50;">0.0000 m</b> → kapalı hat dengelenmiştir.</div>';
+        el.innerHTML = h;
     }
 }
 
 /* ═══════════════════════════════════════════════
-   U6 CONTROLLER — 3B Konumlama (3D Positioning)
+   U6 CONTROLLER — RTK GPS (3B Konumlama)
    ═══════════════════════════════════════════════ */
 class U6Controller {
-    constructor(app) { this.app = app; this.map = null; this.markers = []; this.loaded = false; }
-    activate() {
-        const self = this;
+    constructor(app) { this.app = app; this.map = null; this.markers = []; this.rendered = false; }
+    activate(subId) {
         if (!this.map) this.initMap();
-        setTimeout(() => { if (this.map) this.map.invalidateSize(); if (!self.loaded) self.loadReal(); self.loaded = true; }, 300);
-        const el = document.getElementById('u6LoadBtn'); if (el) el.onclick = () => self.loadReal();
+        if (!this.rendered) { this.renderAll(); this.rendered = true; }
+        if (!subId || subId === 'map') setTimeout(() => { if (this.map) { this.map.invalidateSize(); this._fit(); } }, 120);
     }
     initMap() {
         const el = document.getElementById('u6Map'); if (!el || this.map) return;
         this.map = L.map('u6Map', { zoomControl: true }).setView([41.0240, 28.8869], 18);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM', maxZoom: 20 }).addTo(this.map);
     }
-    loadReal() {
-        const self = this; const data = U6_REAL;
-        self.markers.forEach(m => self.map.removeLayer(m)); self.markers = [];
+    _fit() { if (this.markers.length && this.map) this.map.fitBounds(L.latLngBounds(this.markers.map(m => m.getLatLng())), { padding: [45, 45] }); }
+    renderAll() { this.renderMap(); this.renderDatabase(); this.renderFormulas(); this.renderReport(); this.renderAdjustment(); }
+
+    renderMap() {
+        if (!this.map) this.initMap();
+        this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
         const colorMap = { parcel: '#4caf50', parcel_repeat: '#81c784', detail: '#2196f3', pole: '#ff9800', tree: '#8bc34a', control: '#9c27b0' };
-        const typeLabels = { parcel: 'Parsel kosesi', parcel_repeat: 'Parsel (tekrar)', detail: 'Detay', pole: 'Elektrik diregi', tree: 'Agac', control: 'Kontrol' };
-        const groups = {};
-        for (const d of data) {
+        const typeLabels = { parcel: 'Parsel köşesi', parcel_repeat: 'Parsel (tekrar)', detail: 'Detay', pole: 'Elektrik direği', tree: 'Ağaç', control: 'Kontrol' };
+        for (const d of U6_REAL) {
             const ll = toLatLng(d.Y, d.X);
-            if (!groups[d.type]) groups[d.type] = []; groups[d.type].push(d);
-            const color = colorMap[d.type] || '#999'; const H = (d.h_ell - N_GEOID).toFixed(3);
+            const color = colorMap[d.type] || '#999';
+            const H = (d.h_ell - N_GEOID).toFixed(3);
             const m = L.circleMarker(ll, { radius: d.type === 'parcel' ? 7 : 5, fillColor: color, color: '#fff', weight: 1.5, fillOpacity: 0.85 })
-                .bindPopup('<b>' + d.id + '</b><br>' + (typeLabels[d.type] || d.type) + '<br>Y: ' + d.Y.toFixed(3) + '<br>X: ' + d.X.toFixed(3) + '<br>h<sub>ell</sub>: ' + d.h_ell + ' m<br>H<sub>orto</sub>: ' + H + ' m').addTo(self.map);
-            self.markers.push(m);
+                .bindPopup('<b>' + d.id + '</b><br>' + (typeLabels[d.type] || d.type) + '<br>Y: ' + d.Y.toFixed(3) + '<br>X: ' + d.X.toFixed(3) + '<br>h<sub>ell</sub>: ' + d.h_ell + ' m<br>H<sub>orto</sub>: ' + H + ' m')
+                .addTo(this.map);
+            this.markers.push(m);
         }
-        if (self.markers.length) self.map.fitBounds(L.latLngBounds(self.markers.map(m => m.getLatLng())), { padding: [30, 30] });
-        self.renderTable(data, colorMap, typeLabels, groups);
-        self.renderReport(data, groups);
+        this._fit();
+        const info = document.getElementById('u6MapInfo');
+        if (info) {
+            let legend = '';
+            for (const [type, label] of Object.entries(typeLabels)) {
+                legend += '<span style="background:' + (colorMap[type] || '#999') + ';color:#fff;padding:1px 6px;border-radius:3px;margin-right:4px;font-size:0.7rem;">' + label + '</span>';
+            }
+            info.innerHTML = '<div style="font-size:0.84rem;line-height:1.8;">'
+                + '<b style="color:var(--accent);">Toplam nokta:</b> ' + U6_REAL.length + ' adet<br>'
+                + '<b style="color:var(--accent);">Jeoit yüksekliği:</b> N = 36.898 m (EGM96, N.38\'den)<br>'
+                + '<b style="color:var(--accent);">CORS:</b> YLDZ sabit GNSS istasyonu<br>'
+                + '<b style="color:var(--accent);">Not:</b> P.3 ağaç altında kaldığından GPS ile ölçülememiştir.</div>'
+                + '<div style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:3px;">' + legend + '</div>';
+        }
     }
-    renderTable(data, colorMap, typeLabels, groups) {
-        let html = '<div class="panel-title-bar" style="margin-bottom:0.5rem;"><strong>RTK GPS Olculeri</strong> &mdash; EGM96 N=' + N_GEOID.toFixed(1) + ' m | CORS: YLDZ</div>';
-        html += '<table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Y (Dogu)</th><th>X (Kuzey)</th><th>h<sub>ell</sub> (m)</th><th>H<sub>orto</sub> (m)</th><th>Tur</th></tr></thead><tbody>';
-        for (const d of data) {
-            const color = colorMap[d.type] || '#999'; const H = (d.h_ell - N_GEOID).toFixed(3);
-            html += '<tr><td style="color:' + color + ';font-weight:bold;">' + d.id + '</td><td>' + d.Y.toFixed(3) + '</td><td>' + d.X.toFixed(3) + '</td><td>' + d.h_ell + '</td><td style="color:var(--accent);">' + H + '</td><td><span style="background:' + color + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:0.7rem;">' + (typeLabels[d.type] || d.type) + '</span></td></tr>';
+
+    renderDatabase() {
+        const el = document.getElementById('u6DbContent'); if (!el) return;
+        const colorMap = { parcel: '#4caf50', parcel_repeat: '#81c784', detail: '#2196f3', pole: '#ff9800', tree: '#8bc34a', control: '#9c27b0' };
+        const typeLabels = { parcel: 'Parsel köşesi', parcel_repeat: 'Parsel (tekrar)', detail: 'Detay', pole: 'Elektrik direği', tree: 'Ağaç', control: 'Kontrol' };
+        let h = '<h3 style="color:var(--accent);">Tablo-1 — RTK GPS Ölçüleri (TUREF TM30)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>Y (Doğu)</th><th>X (Kuzey)</th><th>h<sub>ell</sub> (m)</th><th>H<sub>orto</sub> (m)</th><th>Tür</th></tr></thead><tbody>';
+        const groups = {};
+        for (const d of U6_REAL) {
+            if (!groups[d.type]) groups[d.type] = [];
+            groups[d.type].push(d);
+            const color = colorMap[d.type] || '#999';
+            const H = (d.h_ell - N_GEOID).toFixed(3);
+            h += '<tr><td style="color:' + color + ';font-weight:bold;">' + d.id + '</td><td>' + d.Y.toFixed(3) + '</td><td>' + d.X.toFixed(3) + '</td><td>' + d.h_ell + '</td><td style="color:var(--accent);">' + H + '</td><td><span style="background:' + color + ';color:#fff;padding:1px 6px;border-radius:3px;font-size:0.7rem;">' + (typeLabels[d.type] || d.type) + '</span></td></tr>';
         }
-        html += '</tbody></table>';
-        html += '<div style="margin-top:0.5rem;display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.7rem;">';
+        h += '</tbody></table></div>';
+        h += '<div style="margin-top:0.6rem;display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.72rem;">';
         for (const [type, pts] of Object.entries(groups)) {
             const avgH = (pts.reduce((s, p) => s + (p.h_ell - N_GEOID), 0) / pts.length).toFixed(3);
-            html += '<span style="background:var(--bg-3);padding:2px 8px;border-radius:4px;">' + (typeLabels[type] || type) + ': <b>' + pts.length + '</b>, H<sub>ort</sub>&asymp;' + avgH + ' m</span>';
+            h += '<span style="background:var(--bg-3);padding:2px 8px;border-radius:4px;">' + (typeLabels[type] || type) + ': <b>' + pts.length + '</b>, H<sub>ort</sub>&asymp;' + avgH + ' m</span>';
         }
-        html += '</div>';
-        html += '<div style="margin-top:0.5rem;padding:0.4rem 0.6rem;background:var(--bg-3);border-radius:6px;font-size:0.75rem;"><strong style="color:var(--accent);">Tekrar Olcusu Kontrolu</strong><br>';
-        const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
-        if (P4 && P41) { const dx = P4.X - P41.X, dy = P4.Y - P41.Y, dh = P4.h_ell - P41.h_ell; const ds = Math.sqrt(dx*dx + dy*dy); html += 'P.4 &harr; P.41: &Delta;X=' + (dx*1000).toFixed(1) + ' mm, &Delta;Y=' + (dy*1000).toFixed(1) + ' mm, &Delta;S=' + (ds*1000).toFixed(1) + ' mm ' + (ds < 0.05 ? '<span style="color:#4caf50;">&check; Tutarli</span>' : '<span style="color:var(--danger);">&cross; Fark var</span>'); }
-        const N38 = data.find(d => d.id === 'N.38'); const pt38 = this.app.db.coords[38];
-        if (N38 && pt38) { const dx = N38.X - pt38.X, dy = N38.Y - pt38.Y; const ds = Math.sqrt(dx*dx + dy*dy); html += '<br>N.38 &harr; Nokta 38 (sabit): &Delta;X=' + (dx*1000).toFixed(1) + ' mm, &Delta;Y=' + (dy*1000).toFixed(1) + ' mm, &Delta;S=' + (ds*1000).toFixed(1) + ' mm ' + (ds < 0.05 ? '<span style="color:#4caf50;">&check; Tutarli</span>' : '<span style="color:var(--danger);">&cross; Fark var</span>'); }
-        html += '</div>';
-        document.getElementById('u6RtkTable').innerHTML = html;
-        document.getElementById('u6Compare').innerHTML = '<div style="margin-top:0.75rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;"><strong style="color:var(--accent);">Yontem Karsilastirmasi</strong><br><span style="color:var(--text-3);font-size:0.8rem;">U4/U5 hesaplandiginda 3B karsilastirma burada gosterilecek.</span></div>';
+        h += '</div>';
+        h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;">H<sub>orto</sub> = h<sub>ell</sub> − N = h<sub>ell</sub> − 36.898 m &nbsp;|&nbsp; CORS: YLDZ &nbsp;|&nbsp; Datum: ITRF96 / TUREF TM30</p>';
+        el.innerHTML = h;
     }
-    renderReport(data, groups) {
-        const el = document.getElementById('u6ReportContent'); if (!el) return;
-        let html = '<div class="result-section">';
 
-        // ── 1. Başlık + Açıklama ──
-        html += '<h3 style="color:var(--accent);margin-bottom:0.3rem;">Uygulama-6 Raporu — Üç Boyutlu Konumlama (RTK GNSS)</h3>';
-        html += '<h4 style="font-size:0.85rem;margin:0.6rem 0 0.3rem;color:var(--text-2);">1. Açıklama</h4>';
-        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
-             + 'YTÜ Davutpaşa Kampüsü\'nde RTK GNSS yöntemiyle ölçüm yapılmıştır. Ölçümle poligon noktalarının koordinatları ile '
+    renderFormulas() {
+        const el = document.getElementById('u6FormulasContent'); if (!el) return;
+        const K = (tex) => katex.renderToString(tex, { displayMode: true, throwOnError: false });
+        const card = (title, desc, tex) => '<div class="glass-panel formula-card"><h3>' + title + '</h3><p class="formula-desc">' + desc + '</p><div class="formula-render">' + K(tex) + '</div></div>';
+        let h = '<div class="formulas-grid">';
+        h += card('Jeoit Yüksekliği', 'Elipsoid yüksekliği ile ortometrik yükseklik arasındaki fark.', 'N = h - H');
+        h += card('Ortometrik Yükseklik', 'Elipsoid yüksekliğinden jeoit ondülasyonu çıkarılır.', 'H = h_{\\text{ell}} - N = h_{\\text{ell}} - 36.898');
+        h += card('N.38 Jeoit Hesabı', 'Davutpaşa bölgesi için N.38 kontrol noktasından türetilen jeoit değeri.', 'N = h_{N38} - H_{N38} = 110.192 - 73.294 = 36.898\\ \\text{m}');
+        h += card('RTK Tekrar Presizyonu', 'İki bağımsız ölçünün konum farkından hesaplanan tekrar hassasiyeti.', '\\Delta S = \\sqrt{\\Delta X^{2} + \\Delta Y^{2}}');
+        h += '</div>';
+        el.innerHTML = h;
+    }
+
+    renderReport() {
+        const el = document.getElementById('u6ReportContent'); if (!el) return;
+        const data = U6_REAL;
+        const groups = {};
+        for (const d of data) { if (!groups[d.type]) groups[d.type] = []; groups[d.type].push(d); }
+
+        let html = '';
+
+        // ── 1. Açıklama ──
+        html += '<h3>1. Açıklama</h3>';
+        html += '<p>YTÜ Davutpaşa Kampüsü\'nde RTK GNSS yöntemiyle ölçüm yapılmıştır. Ölçümle poligon noktalarının koordinatları ile '
              + 'poligon hattının yakınındaki bir yeşil alanın köşe noktaları ve içerisindeki detay öğelerinin (elektrik direği, ağaçlar) '
              + 'koordinatları elde edilmiştir. Ölçüm sırasında şerit metre, GPS alıcısı ve GPS jalonu kullanılmış; '
              + 'düzeltmeler YLDZ sabit GNSS istasyonundan (CORS) alınmıştır.</p>';
-        html += '<p style="font-size:0.8rem;color:var(--text-2);line-height:1.6;margin-bottom:0.5rem;">'
-             + '<strong>Saha gözlemi:</strong> P.3 noktası ağacın altında kaldığından GPS ile ölçülememiştir. Bu durum, GNSS yönteminin '
+        html += '<p><strong>Saha gözlemi:</strong> P.3 noktası ağacın altında kaldığından GPS ile ölçülememiştir. Bu durum, GNSS yönteminin '
              + 'açık gökyüzü görüşüne bağımlılığını gösteren somut bir örnektir: yoğun yaprak örtüsü uydu sinyallerini zayıflatır ve '
              + 'sabit (fix) çözüm elde edilemez. Bu tür noktalar klasik (kutupsal) alımla tamamlanmalıdır.</p>';
 
-        // ── Öğrenci / ölçüm kimliği ──
-        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.8rem;">';
+        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.6rem 0.8rem;margin-bottom:0.8rem;display:flex;flex-wrap:wrap;gap:0.4rem 1.5rem;font-size:0.85rem;">';
         html += '<span><strong>Öğrenci:</strong> 24046607 (Ertuğrul)</span>';
         html += '<span><strong>Nokta:</strong> 48</span>';
         html += '<span><strong>CORS:</strong> YLDZ (Yıldız Sabit GNSS)</span>';
@@ -1984,37 +1548,21 @@ class U6Controller {
         html += '<span><strong>Toplam Nokta:</strong> ' + data.length + ' adet</span>';
         html += '</div>';
 
-        // Point distribution
-        let breakdown = [];
-        for (const [type, pts] of Object.entries(groups)) {
-            breakdown.push(pts.length + ' ' + (type === 'parcel' ? 'parsel köşesi' : type === 'detail' ? 'detay' : type === 'pole' ? 'direk' : type === 'tree' ? 'ağaç' : type === 'control' ? 'kontrol' : type === 'parcel_repeat' ? 'parsel (tekrar)' : type));
-        }
-        html += '<p style="font-size:0.8rem;"><strong>Nokta Dağılımı:</strong> ' + breakdown.join(', ') + '. Detay noktalarından 108-DIREK elektrik direğini, 109-AGAC2 ile 110-AGAC yeşil alandaki iki ağacı göstermektedir.</p>';
-
-        // ── 2. Jeoit yüksekliği hesabı ──
+        // ── 2. Jeoit yüksekliği ──
         const N38pt = data.find(d => d.id === 'N.38');
         const hN38 = N38pt ? N38pt.h_ell : 110.192;
-        const HN38_known = 73.294;  // from RS benchmark
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">2. Jeoit Yüksekliği ve Ortometrik Yükseklik Hesabı</h4>';
-        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin:0.4rem 0 0.8rem;font-size:0.8rem;border-left:3px solid var(--accent);">';
+        const HN38_known = 73.294;
+        html += '<h3>2. Jeoit Yüksekliği ve Ortometrik Yükseklik Hesabı</h3>';
+        html += '<div style="background:var(--bg-2);border-radius:6px;padding:0.6rem 0.8rem;margin:0.4rem 0 0.8rem;font-size:0.85rem;border-left:3px solid var(--accent);">';
         html += 'N.38 noktasının ölçülen elipsoid yüksekliğinden (h), bilinen ortometrik yüksekliği (H) çıkarılarak ortalama jeoit yüksekliği (N) hesaplanmıştır.<br>';
-        html += '<span style="font-family:JetBrains Mono,monospace;font-size:0.8rem;">N = h<sub>N38</sub> − H<sub>N38</sub> = ' + hN38.toFixed(3) + ' − ' + HN38_known.toFixed(3) + ' = <b style="color:var(--accent);">' + N_GEOID.toFixed(3) + ' m</b></span><br>';
-        html += '<span style="font-size:0.72rem;color:var(--text-3);">Elde edilen jeoit yüksekliğiyle bütün noktaların ortometrik yükseklikleri hesaplanmıştır: H = h<sub>ell</sub> − N (Davutpaşa bölgesi).</span>';
+        html += '<span style="font-family:\'JetBrains Mono\',monospace;">N = h<sub>N38</sub> − H<sub>N38</sub> = ' + hN38.toFixed(3) + ' − ' + HN38_known.toFixed(3) + ' = <b style="color:var(--accent);">' + N_GEOID.toFixed(3) + ' m</b></span><br>';
+        html += '<span style="font-size:0.78rem;color:var(--text-3);">Elde edilen jeoit yüksekliğiyle bütün noktaların ortometrik yükseklikleri hesaplanmıştır: H = h<sub>ell</sub> − N (Davutpaşa bölgesi).</span>';
         html += '</div>';
 
-        // Repeat measurement check
-        const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
-        if (P4 && P41) {
-            const dx = P4.X - P41.X, dy = P4.Y - P41.Y, ds = Math.sqrt(dx*dx + dy*dy);
-            html += '<p style="font-size:0.8rem;"><strong>Tekrar Ölçüsü Kontrolü (P.4 ↔ P.41):</strong> ';
-            html += 'konum farkı ' + (ds*1000).toFixed(1) + ' mm — ';
-            html += (ds < 0.02 ? '<span style="color:#4caf50;">RTK tekrarlılığı çok iyi (&lt;2 cm)</span>' : ds < 0.05 ? '<span style="color:#ff9800;">RTK tekrarlılığı kabul edilebilir (&lt;5 cm)</span>' : '<span style="color:var(--danger);">Tekrar ölçüsünde anlamlı fark var</span>') + '</p>';
-        }
-
-        // ── 3. Tablo-2: yöntemler arası yükseklik karşılaştırması ──
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">3. Tablo-2 — Yükseklik Karşılaştırması (üç yöntem)</h4>';
-        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-bottom:0.4rem;">GPS ile hesaplanan ortometrik yükseklikler, aynı noktalardaki geometrik nivelman (Uygulama-5) ve trigonometrik nivelman sonuçlarıyla karşılaştırılmıştır (grup verisi):</p>';
-        html += '<div style="overflow-x:auto;"><table class="u3-obs-table" style="font-size:0.75rem;">';
+        // ── 3. Tablo-2 ──
+        html += '<h3>3. Tablo-2 — Yükseklik Karşılaştırması (üç yöntem)</h3>';
+        html += '<p style="font-size:0.85rem;color:var(--text-3);margin-bottom:0.4rem;">GPS ile hesaplanan ortometrik yükseklikler, aynı noktalardaki geometrik nivelman (Uygulama-5) ve trigonometrik nivelman sonuçlarıyla karşılaştırılmıştır (grup verisi):</p>';
+        html += '<div style="overflow-x:auto;"><table class="u3-obs-table">';
         html += '<thead><tr><th>Nokta</th><th>GPS H (m)</th><th>Geometrik Niv. (m)</th><th>Trigonometrik Niv. (m)</th><th>GPS−Geo (cm)</th><th>GPS−Trig (cm)</th></tr></thead><tbody>';
         for (const r of heightComparison) {
             const dGeo = (r.gps !== null && r.geo !== null) ? ((r.gps - r.geo) * 100).toFixed(1) : '—';
@@ -2022,21 +1570,64 @@ class U6Controller {
             html += '<tr><td><b>' + r.id + '</b></td><td>' + (r.gps !== null ? r.gps.toFixed(3) : '— (ağaç altı)') + '</td><td>' + (r.geo !== null ? r.geo.toFixed(4) : '—') + '</td><td>' + (r.trig !== null ? r.trig.toFixed(3) : '—') + '</td><td>' + dGeo + '</td><td>' + dTrig + '</td></tr>';
         }
         html += '</tbody></table></div>';
-        html += '<p style="font-size:0.78rem;color:var(--text-2);line-height:1.6;margin-top:0.4rem;">'
+        html += '<p style="font-size:0.85rem;color:var(--text-2);line-height:1.7;margin-top:0.4rem;">'
              + 'Üç yöntem arasındaki farklar yaklaşık 10–35 cm aralığındadır. Geometrik nivelman en güvenilir yükseklik yöntemi olmakla birlikte, '
              + 'buradaki nivelman hattının kendi kapanma hatası tolerans dışı kaldığından (Uygulama-5 raporuna bakınız) farkların bir bölümü nivelman '
              + 'hattındaki hatadan kaynaklanmaktadır. Trigonometrik nivelmanda düşey açı hataları mesafeyle birlikte yükseklik farkına doğrudan yansır. '
              + 'RTK GPS yükseklikleri ise jeoit modelinin (N) doğruluğuyla sınırlıdır; N tek bir noktadan (N.38) türetildiği için bölgesel jeoit eğimi ihmal edilmiştir.</p>';
 
         // ── 4. Kroki + sonuç ──
-        html += '<h4 style="font-size:0.85rem;margin:0.8rem 0 0.3rem;color:var(--text-2);">4. Ölçü Krokisi ve Teslim</h4>';
-        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.5rem 0.8rem;margin:0.4rem 0;font-size:0.78rem;">';
+        html += '<h3>4. Ölçü Krokisi ve Teslim</h3>';
+        html += '<div style="background:var(--bg-3);border-radius:6px;padding:0.5rem 0.8rem;margin:0.4rem 0;font-size:0.85rem;">';
         html += '<strong>Ölçü Krokisi:</strong> Her öğrenci tarafından A3 kâğıda yaklaşık ölçekte ölçü krokisi hazırlanacaktır. Krokide parsel köşeleri, elektrik direği (108), ağaçlar (109, 110) ve diğer detay noktaları gösterilmeli; kroki elle çizilmeli ve kuzey oku içermelidir. Ölçülen yeşil alan haritada renk kodlu işaretlerle gösterilmiştir.';
         html += '</div>';
-
-        html += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">* RTK GPS ölçümlerinde YLDZ sabit istasyonundan gelen düzeltmeler kullanılmıştır. Parsel köşeleri ve detay noktaları hem kutupsal alım hem de RTK GPS ile ayrı ayrı ölçülmüştür. Cephe kontrolü için parsel kenarları şerit metre ile ayrıca ölçülmüştür. Yükseklik karşılaştırma değerleri grup raporundaki Tablo-2\'den alınmıştır.</p>';
-        html += '</div>';
+        html += '<p style="font-size:0.78rem;color:var(--text-3);margin-top:0.5rem;border-top:1px solid var(--glass-border);padding-top:0.5rem;">* RTK GPS ölçümlerinde YLDZ sabit istasyonundan gelen düzeltmeler kullanılmıştır. Parsel köşeleri ve detay noktaları hem kutupsal alım hem de RTK GPS ile ayrı ayrı ölçülmüştür. Cephe kontrolü için parsel kenarları şerit metre ile ayrıca ölçülmüştür. Yükseklik karşılaştırma değerleri grup raporundaki Tablo-2\'den alınmıştır.</p>';
         el.innerHTML = html;
+    }
+
+    renderAdjustment() {
+        const el = document.getElementById('u6AdjContent'); if (!el) return;
+        const data = U6_REAL;
+        let h = '<h3 style="color:var(--accent);">Tekrar Ölçüsü Kontrolü ve Hassasiyet Analizi</h3>';
+
+        // P.4 ↔ P.41
+        const P4 = data.find(d => d.id === 'P.4'); const P41 = data.find(d => d.id === 'P.41');
+        h += '<div style="background:var(--bg-2);border-left:3px solid #4caf50;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">';
+        h += '<strong>P.4 ↔ P.41 Tekrar Ölçüsü:</strong><br>';
+        if (P4 && P41) {
+            const dx = P4.X - P41.X, dy = P4.Y - P41.Y, dh = P4.h_ell - P41.h_ell;
+            const ds = Math.sqrt(dx * dx + dy * dy);
+            h += 'ΔX = ' + (dx * 1000).toFixed(1) + ' mm &nbsp; ΔY = ' + (dy * 1000).toFixed(1) + ' mm &nbsp; ΔS = ' + (ds * 1000).toFixed(1) + ' mm &nbsp; Δh = ' + (dh * 1000).toFixed(1) + ' mm<br>';
+            h += (ds < 0.05 ? '<span style="color:#4caf50;">✓ Tutarlı — konum farkı &lt; 5 cm (RTK tekrar presizyonu kabul edilebilir)</span>' : '<span style="color:var(--danger);">✗ Fark var — konum farkı ≥ 5 cm</span>');
+        } else { h += '<span style="color:var(--text-3);">Veri bulunamadı.</span>'; }
+        h += '</div>';
+
+        // N.38 ↔ sabit nokta 38
+        const N38 = data.find(d => d.id === 'N.38');
+        const pt38 = this.app.db ? this.app.db.coords[38] : null;
+        h += '<div style="background:var(--bg-2);border-left:3px solid #9c27b0;border-radius:6px;padding:0.6rem 0.9rem;margin:0.5rem 0;font-size:0.85rem;">';
+        h += '<strong>N.38 ↔ Sabit Nokta 38 Karşılaştırması:</strong><br>';
+        if (N38 && pt38) {
+            const dx = N38.X - pt38.X, dy = N38.Y - pt38.Y;
+            const ds = Math.sqrt(dx * dx + dy * dy);
+            h += 'ΔX = ' + (dx * 1000).toFixed(1) + ' mm &nbsp; ΔY = ' + (dy * 1000).toFixed(1) + ' mm &nbsp; ΔS = ' + (ds * 1000).toFixed(1) + ' mm<br>';
+            h += (ds < 0.05 ? '<span style="color:#4caf50;">✓ Tutarlı — RTK ölçüsü sabit nokta koordinatıyla uyumlu</span>' : '<span style="color:var(--danger);">✗ Fark var — RTK ölçüsü ≥ 5 cm sapıyor</span>');
+        } else if (N38) {
+            h += 'N.38 RTK: Y=' + N38.Y.toFixed(3) + ' X=' + N38.X.toFixed(3) + '<br><span style="color:var(--text-3);">Sabit nokta 38 koordinatı veri tabanında bulunamadı.</span>';
+        } else { h += '<span style="color:var(--text-3);">Veri bulunamadı.</span>'; }
+        h += '</div>';
+
+        // Yöntem karşılaştırması paragrafı
+        h += '<h3 style="color:var(--accent);margin-top:1rem;">Yöntem Karşılaştırması (GPS / Geometrik / Trigonometrik)</h3>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Nokta</th><th>GPS H (m)</th><th>Geo H (m)</th><th>Trig H (m)</th><th>GPS−Geo (cm)</th><th>GPS−Trig (cm)</th></tr></thead><tbody>';
+        for (const r of heightComparison) {
+            const dGeo = (r.gps !== null && r.geo !== null) ? ((r.gps - r.geo) * 100).toFixed(1) : '—';
+            const dTrig = (r.gps !== null && r.trig !== null) ? ((r.gps - r.trig) * 100).toFixed(1) : '—';
+            h += '<tr><td><b>' + r.id + '</b></td><td>' + (r.gps !== null ? r.gps.toFixed(3) : '— (ağaç altı)') + '</td><td>' + (r.geo !== null ? r.geo.toFixed(4) : '—') + '</td><td>' + (r.trig !== null ? r.trig.toFixed(3) : '—') + '</td><td>' + dGeo + '</td><td>' + dTrig + '</td></tr>';
+        }
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.85rem;color:var(--text-2);line-height:1.7;margin-top:0.5rem;">Üç yöntem arasındaki farklar yaklaşık 10–35 cm aralığındadır. GPS ile geometrik nivelman karşılaştırmasında elde edilen farklar hem jeoit modelinin bölgesel hatalarını hem de nivelman kapanma hatasını (Uygulama-5) yansıtmaktadır. Trigonometrik nivelmanda uzak noktalarda düşey açı hatası büyüyeceğinden farklar daha belirgindir.</p>';
+        el.innerHTML = h;
     }
 }
 

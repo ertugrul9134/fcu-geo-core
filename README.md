@@ -14,8 +14,8 @@ Yıldız Teknik Üniversitesi Ölçme Uygulamaları dersi kapsamında geliştiri
 Uygulamanın yayında olduğu özel alan adı (Surge) herhangi bir abonelik veya ücretli plan gerektirmeyen, bağımsız ve ücretsiz bir altyapı üzerine kurulmuştur. İlerleyen süreçte bu altyapıyı yönetmek, projeyi yayından kaldırmak veya güncellemek isterseniz aşağıdaki yönetici (login) bilgilerini kullanabilirsiniz:
 
 - **Platform:** [Surge.sh](https://surge.sh/)
-- **Yönetici E-Posta:** `[REDACTED]`
-- **Şifre:** `[REDACTED]`
+- **Yönetici E-Posta:** `[ertugrul_fcu@sec1mail.com]`
+- **Şifre:** `[]`
 
 *(Uygulamayı yerelde terminalden güncelledikten sonra tekrar aynı adrese deploy etmek isterseniz terminalde `npx surge ./ fundamentals-surveying.surge.sh` komutunu çalıştırmanız ve istendiğinde bu bilgileri girmeniz yeterlidir.)*
 

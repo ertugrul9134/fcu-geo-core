@@ -6,3 +6,5 @@ app_original.js
 _tmp_trig_calc.js
 
 verify_*.png
+_snapshots/
+_u3_match.mjs

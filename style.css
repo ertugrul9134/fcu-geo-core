@@ -403,7 +403,9 @@ body::before {
     overflow: hidden;
 }
 
-#geoMap {
+#geoMap,
+.map-wrapper > div,
+#u4Map, #u5Map, #u6Map, #geoMapU3Map {
     width: 100%;
     height: 100%;
     background: var(--mocha-800);
@@ -1411,16 +1413,10 @@ body:has(.inner-nav-bar:not(.hidden)) main.page { scroll-margin-top: calc(var(--
     border-bottom: 1px solid var(--glass-border);
     white-space: nowrap;
 }
-.u3-obs-table td {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 140px;
-}
-/* Allow wider cells for ID/name columns */
-.u3-obs-table td:first-child {
-    max-width: 160px;
-}
-/* Responsive: enable horizontal scroll on narrow screens */
+/* No hard cell truncation — tables size to content; wide tables scroll
+   inside their (overflow-x:auto) wrapper instead of squashing columns. */
+.u3-obs-table td { white-space: nowrap; }
+/* Responsive: tighten on narrow screens */
 @media (max-width: 700px) {
     .u3-obs-table { font-size: 0.68rem; }
     .u3-obs-table th, .u3-obs-table td { padding: 0.3rem 0.35rem; }

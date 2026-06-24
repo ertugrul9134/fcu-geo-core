@@ -329,256 +329,328 @@
     </main>
 
     <!-- ═══════════════ PAGE: UYGULAMA-3 (Silsile Düşey Açı) ═══════════════ -->
-    <main id="pageU3" class="page">
+            <!-- U3 · HARITA -->
+            <main id="pageU3Map" class="page">
         <div class="page-grid">
-            <!-- SOL: HARİTA + İSTASYON SEÇİMİ -->
             <section class="map-section">
                 <div class="glass-panel map-panel">
-                    <div class="panel-title-bar" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                    <div class="panel-title-bar" style="display:flex;justify-content:space-between;align-items:flex-end;">
                         <div>
-                            <h2>Uygulama-3 — Silsile Düşey Açı</h2>
-                            <p style="margin-bottom: 1rem;">Bir <strong>istasyon noktası</strong> seçin, sonra 10 km halka içinden sırayla <strong>3 cami</strong> seçin (soldan-sağa).</p>
+                            <h2>Silsile — İstasyon N.48</h2>
+                            <p style="margin-bottom:1rem;">N.48'den 3 hedefe yatay doğrultu silsilesi; çevredeki gerçek camiler harita üzerinde.</p>
                         </div>
-                        <div style="text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-3); line-height: 1.5; margin-bottom: 1rem;">
-                            <span style="color: var(--accent);">Silsile:</span> 1 (yüz I + yüz II)<br>
-                            <span style="color: var(--accent);">Hedef:</span> 3 cami<br>
-                            <span style="color: var(--accent);">Toplam ölçü:</span> 6 düşey açı
+                        <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-3);line-height:1.5;margin-bottom:1rem;">
+                            <span style="color:var(--accent);">Yöntem:</span> Silsile (yatay doğrultu)<br>
+                            <span style="color:var(--accent);">Silsile:</span> 2 tam<br>
+                            <span style="color:var(--accent);">Referans:</span> L-1 kübbe = 0
                         </div>
                     </div>
-                    <div class="map-wrapper">
-                        <div id="geoMapU3"></div>
-                    </div>
+                    <div class="map-wrapper"><div id="u3Map"></div></div>
                 </div>
             </section>
-
-            <!-- SAĞ: KONTROLLER -->
             <section class="telemetry-section">
-                <div class="glass-panel selection-panel">
-                    <h3>Adım 1 — İstasyon</h3>
-                    <select id="u3StationSelect" class="u3-select">
-                        <option value="">— İstasyon noktası seç —</option>
-                    </select>
-                    <div id="u3StationInfo" class="u3-info">
-                        <span class="empty-hint">Bir nokta seçin...</span>
-                    </div>
-                </div>
-
-                <div class="glass-panel selection-panel">
-                    <h3>Adım 2 — Camiler <span style="font-size: 0.75rem; color: var(--text-3); font-weight: 400;">(Overpass API)</span></h3>
-                    <div class="btn-row" style="margin-bottom: 0.6rem;">
-                        <button id="u3LoadMosquesBtn" class="btn btn-primary" disabled>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="8"/></svg>
-                            Camileri Yükle
-                        </button>
-                        <button id="u3ClearU3Btn" class="btn btn-outline">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            Temizle
-                        </button>
-                    </div>
-                    <div id="u3MosquesList" class="u3-mosques-list">
-                        <span class="empty-hint">Önce istasyon seçin, sonra "Camileri Yükle" butonuna basın.</span>
-                    </div>
-                    <div id="u3SelectedMosques" class="node-chips" style="margin-top: 0.6rem;">
-                        <span class="empty-hint">Sırayla 3 cami seçin (soldan-sağa)...</span>
-                    </div>
-                </div>
-
-                <div class="glass-panel selection-panel">
-                    <h3>Adım 3 — Sabitler</h3>
-                    <div class="u3-constants-grid">
-                        <label>Refraksiyon k <input type="number" step="0.01" id="u3ConstK" value="0.13"></label>
-                        <label>Yer yarıçapı R (m) <input type="number" step="1000" id="u3ConstR" value="6371000"></label>
-                        <label>Alet yüksekliği i (m) <input type="number" step="0.01" id="u3ConstI" value="1.55"></label>
-                        <label>Minare h<sub>m</sub> (m) <input type="number" step="0.5" id="u3ConstT" value="25"></label>
-                    </div>
-                    <label class="u3-nearby-label">
-                        <span>Haritada en yakın <strong id="u3NearbyNLabel">30</strong> cami</span>
-                        <input type="range" id="u3NearbyN" min="5" max="200" step="5" value="30">
-                    </label>
+                <div class="glass-panel">
+                    <h3>İstasyon ve Hedefler</h3>
+                    <div id="u3MapInfo" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
                 </div>
             </section>
         </div>
+    </main>
 
-        <!-- ÖLÇÜ TABLOSU -->
-        <div class="page-single" style="margin-top: 1.5rem;">
+            <!-- U3 · VERITABANI -->
+            <main id="pageU3Db" class="page">
+        <div class="page-single">
             <div class="glass-panel">
                 <div class="panel-title-bar">
-                    <h2>Adım 4 — Ölçü Girişi (Zenith açıları, gon)</h2>
-                    <p>Yüz I (durbin sol) ile sırayla 3 camiyi okuyun, sonra teodoliti 180° çevirip Yüz II okumalarını girin. <strong>0<sup>g</sup> = zenith</strong>, 100<sup>g</sup> = ufuk.</p>
+                    <h2>Uygulama-3 — Veritabanı</h2>
+                    <p>İki silsile yatay doğrultu çizelgesi (Yüz I / Yüz II / sıfıra indirgeme).</p>
                 </div>
-                <div id="u3ObsTable">
-                    <span class="empty-hint">Önce 3 cami seçin...</span>
-                </div>
-                <div class="btn-row" style="margin-top: 1rem;">
-                    <button id="u3CalcBtn" class="btn btn-primary" disabled>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        HESAPLA
-                    </button>
-                </div>
+                <div id="u3DbContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
             </div>
         </div>
+    </main>
 
-        <!-- SONUÇLAR -->
-        <div class="page-single" style="margin-top: 1.5rem;">
+            <!-- U3 · FORMÜLLER -->
+            <main id="pageU3Formulas" class="page">
+        <div class="page-single">
             <div class="glass-panel">
                 <div class="panel-title-bar">
-                    <h2>Sonuçlar</h2>
-                    <p>Kesin düşey açı, standart sapma ve geodezik kıyas.</p>
+                    <h2>Uygulama-3 — Formüller</h2>
+                    <p>Silsile indirgemesi, standart sapma ve düşey açı bağıntıları.</p>
                 </div>
-                <div id="u3Results" class="results-body">
-                    <span class="empty-hint">Ölçüleri girip "Hesapla" butonuna basın...</span>
+                <div id="u3FormulasContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U3 · RAPOR -->
+            <main id="pageU3Report" class="page">
+        <div class="page-single">
+            <div class="glass-panel report-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-3 — Silsile Raporu</h2>
+                    <p>Yatay doğrultu indirgemesi, standart sapma ve düşey açı türetimi.</p>
                 </div>
+                <div id="u3ReportContent" class="report-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U3 · DENGELEME -->
+            <main id="pageU3Adjustment" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-3 — Dengeleme</h2>
+                    <p>Bir doğrultunun ve kesin doğrultunun standart sapması (Bessel).</p>
+                </div>
+                <div id="u3AdjContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
             </div>
         </div>
     </main>
 
     <!-- ═══════════════ TASK PAGES (U4 / U5 / U6 / Calc Hub) — U1 removed per user 2026-06-12 ═══════════════ -->
 
-            <main id="pageU4Stub" class="page">
+            <!-- U4 · HARITA -->
+            <main id="pageU4Map" class="page">
         <div class="page-grid">
-            <section class="telemetry-section" style="max-width:520px;">
-                <div class="glass-panel">
-                    <div class="panel-title-bar">
-                        <h2>Uygulama-4</h2>
-                        <p style="font-size:0.85rem;">Dayalı Poligon Hesabı — Total Station</p>
-                    </div>
-                    <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
-                        <div style="flex:1;"><label style="font-size:0.7rem;">Öğrenci No</label>
-                        <input type="number" id="u4StudentId" value="24046607" style="width:100%;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);font-size:0.8rem;"></div>
-                        <div style="flex:1;"><label style="font-size:0.7rem;">XX (son 2)</label>
-                        <input type="number" id="u4XX" value="7" readonly style="width:100%;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-3);color:var(--accent);font-size:0.8rem;"></div>
-                    </div>
-                    <label style="font-size:0.7rem;">Poligon Güzergahı (nokta no, virgülle)</label>
-                    <input type="text" id="u4TraversePath" value="43,44,46,47,45" style="width:100%;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);font-size:0.8rem;margin-bottom:0.5rem;">
-                    <button id="u4LoadBtn" class="btn btn-primary" style="width:100%;margin-bottom:0.5rem;">Örnek Veri Yükle ve Hesapla</button>
-                    
-                    <details style="margin-top:0.75rem;">
-                        <summary style="cursor:pointer;color:var(--accent);font-size:0.8rem;">Manuel Olcu Girisi (Gerçek Saha Verisi)</summary>
-                        <div style="margin-top:0.5rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;">
-                            <label style="font-size:0.7rem;">Kenar Olculeri (JSON format: [{from,to,slopeDist,zenithAngle},...])</label>
-                            <textarea id="u4ManualEdges" style="width:100%;height:80px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"from":43,"to":44,"slopeDist":19.467,"zenithAngle":100.445}, ...]'></textarea>
-                            <label style="font-size:0.7rem;margin-top:0.4rem;">Kirilma Acilari (JSON: gon cinsinden)</label>
-                            <textarea id="u4ManualStations" style="width:100%;height:60px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"stationId":44,"breakAngleObserved":138.5}, ...]'></textarea>
-                            <button id="u4ManualBtn" class="btn btn-outline" style="margin-top:0.4rem;font-size:0.75rem;">Manuel Verilerle Hesapla</button>
+            <section class="map-section">
+                <div class="glass-panel map-panel">
+                    <div class="panel-title-bar" style="display:flex;justify-content:space-between;align-items:flex-end;">
+                        <div>
+                            <h2>Dayalı Poligon — Güzergâh</h2>
+                            <p style="margin-bottom:1rem;">N.50 → N.53 → P1…P7 → N.38 → N.40 güzergâhı kesin koordinatlarla projekte edilmiştir.</p>
                         </div>
-                    </details>
-<div id="u4EdgeTable" style="font-size:0.7rem;max-height:200px;overflow-y:auto;"></div>
+                        <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-3);line-height:1.5;margin-bottom:1rem;">
+                            <span style="color:var(--accent);">CRS:</span> TUREF / TM30<br>
+                            <span style="color:var(--accent);">Yöntem:</span> Total Station<br>
+                            <span style="color:var(--accent);">Kapanma:</span> f<sub>β</sub> = 0 mgon
+                        </div>
+                    </div>
+                    <div class="map-wrapper">
+                        <div id="u4Map"></div>
+                    </div>
                 </div>
             </section>
-            <section class="map-section" style="flex:1;display:flex;flex-direction:column;gap:0.5rem;">
-                <div class="glass-panel" style="flex:1;min-height:300px;">
-                    <div id="u4Map" style="width:100%;height:100%;min-height:300px;border-radius:8px;"></div>
-                </div>
+            <section class="telemetry-section">
                 <div class="glass-panel">
-                    <h3 style="margin:0 0 0.5rem 0;">Poligon Sonuçları</h3>
-                    <div id="u4Results" class="empty-hint">Güzergah seçin ve hesapla butonuna basın.</div>
+                    <h3>Güzergâh Özeti</h3>
+                    <div id="u4MapInfo" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
                 </div>
             </section>
         </div>
     </main>
-    <main id="pageU4Report" class="page">
+
+            <!-- U4 · VERITABANI -->
+            <main id="pageU4Db" class="page">
         <div class="page-single">
             <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-4 — Veritabanı</h2>
+                    <p>Dayalı poligonun ölçü ve koordinat verileri (kesin/dengelenmiş değerler).</p>
+                </div>
+                <div id="u4DbContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U4 · FORMÜLLER -->
+            <main id="pageU4Formulas" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-4 — Formüller</h2>
+                    <p>Dayalı poligon hesabında kullanılan bağıntılar.</p>
+                </div>
+                <div id="u4FormulasContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U4 · RAPOR -->
+            <main id="pageU4Report" class="page">
+        <div class="page-single">
+            <div class="glass-panel report-panel">
                 <div class="panel-title-bar">
                     <h2>Uygulama-4 — Poligon Raporu</h2>
-                    <p>Hesaplama sonuclari, hata analizi ve yorumlar.</p>
+                    <p>Ölçü çizelgesi, kapanma kontrolü, koordinat hesabı ve yorumlar.</p>
                 </div>
-                <div id="u4ReportContent" class="results-body">
-                    <span class="empty-hint">Hesaplama yapildiginda rapor burada goruntulenecek...</span>
+                <div id="u4ReportContent" class="report-body">
+                    <span class="empty-hint">Yükleniyor…</span>
                 </div>
             </div>
         </div>
     </main>
 
-            <main id="pageU5Stub" class="page">
+            <!-- U4 · DENGELEME -->
+            <main id="pageU4Adjustment" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-4 — Dengeleme</h2>
+                    <p>Açı kapanma kontrolü ve Bowditch koordinat dengelemesi.</p>
+                </div>
+                <div id="u4AdjContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U5 · HARITA -->
+            <main id="pageU5Map" class="page">
         <div class="page-grid">
-            <section class="telemetry-section" style="max-width:520px;">
-                <div class="glass-panel">
-                    <div class="panel-title-bar">
-                        <h2>Uygulama-5</h2>
-                        <p style="font-size:0.85rem;">Geometrik & Trigonometrik Nivelman</p>
-                    </div>
-                    <div style="background:var(--bg-3);border-radius:6px;padding:0.5rem;margin-bottom:0.75rem;font-size:0.75rem;">
-                        <strong>Öğrenci:</strong> Ertuğrul (24046607) &nbsp;|&nbsp; <strong>Nokta:</strong> 48<br>
-                        <strong>Tarih:</strong> 10 Haziran 2026 &nbsp;|&nbsp; <strong>Alet:</strong> Nivo
-                    </div>
-                    <button id="u5LoadBtn" class="btn btn-primary" style="width:100%;margin-bottom:0.5rem;">Gerçek Verileri Göster</button>
-                    <div id="u5GeoTable" style="font-size:0.7rem;max-height:250px;overflow-y:auto;"></div>
-                    
-                    <details style="margin-top:0.75rem;">
-                        <summary style="cursor:pointer;color:var(--accent);font-size:0.8rem;">Trigonometrik Nivelman Girisi</summary>
-                        <div style="margin-top:0.5rem;padding:0.5rem;background:var(--bg-3);border-radius:6px;">
-                            <label style="font-size:0.7rem;">Total Station Olculeri (JSON: [{from,to,slopeDist,zenithGon,i,t},...])</label>
-                            <textarea id="u5ManualTrig" style="width:100%;height:80px;font-family:JetBrains Mono,monospace;font-size:0.65rem;padding:0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--bg-2);color:var(--text-1);" placeholder='[{"from":"N38","to":"N40","slopeDist":35.2,"zenithGon":99.1,"i":1.55,"t":1.60}, ...]'></textarea>
-                            <button id="u5TrigBtn" class="btn btn-outline" style="margin-top:0.4rem;font-size:0.75rem;">Trigonometrik Hesapla</button>
+            <section class="map-section">
+                <div class="glass-panel map-panel">
+                    <div class="panel-title-bar" style="display:flex;justify-content:space-between;align-items:flex-end;">
+                        <div>
+                            <h2>Kapalı Nivelman — Güzergâh</h2>
+                            <p style="margin-bottom:1rem;">RS14 → N.53 → P1…P7 → N.38 → N.40…N.49 → RS14 kapalı hattı.</p>
                         </div>
-                    </details>
-<div id="u5TrigTable" style="font-size:0.7rem;margin-top:0.5rem;"></div>
-                    <div id="u5Compare" style="font-size:0.7rem;margin-top:0.5rem;"></div>
+                        <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-3);line-height:1.5;margin-bottom:1rem;">
+                            <span style="color:var(--accent);">Yöntem:</span> Geometrik nivelman<br>
+                            <span style="color:var(--accent);">Dayanak:</span> RS14 = 76.565 m<br>
+                            <span style="color:var(--accent);">Kapanma:</span> +344.9 mm
+                        </div>
+                    </div>
+                    <div class="map-wrapper"><div id="u5Map"></div></div>
                 </div>
             </section>
-            <section class="map-section" style="flex:1;display:flex;flex-direction:column;gap:0.5rem;">
-                <div class="glass-panel" style="flex:1;min-height:350px;">
-                    <div id="u5Map" style="width:100%;height:100%;min-height:350px;border-radius:8px;"></div>
+            <section class="telemetry-section">
+                <div class="glass-panel">
+                    <h3>Hat Özeti</h3>
+                    <div id="u5MapInfo" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
                 </div>
             </section>
         </div>
     </main>
-    <main id="pageU5Report" class="page">
+
+            <!-- U5 · VERITABANI -->
+            <main id="pageU5Db" class="page">
         <div class="page-single">
             <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-5 — Veritabanı</h2>
+                    <p>Geometrik (Tablo-1) ve trigonometrik (Tablo-3) ham ölçüler.</p>
+                </div>
+                <div id="u5DbContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U5 · FORMÜLLER -->
+            <main id="pageU5Formulas" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-5 — Formüller</h2>
+                    <p>Geometrik ve trigonometrik nivelman bağıntıları.</p>
+                </div>
+                <div id="u5FormulasContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U5 · RAPOR -->
+            <main id="pageU5Report" class="page">
+        <div class="page-single">
+            <div class="glass-panel report-panel">
                 <div class="panel-title-bar">
                     <h2>Uygulama-5 — Nivelman Raporu</h2>
-                    <p>Hesaplama sonuclari, hata analizi ve yorumlar.</p>
+                    <p>Geometrik kapanma dengelemesi, trigonometrik karşılaştırma ve yorumlar.</p>
                 </div>
-                <div id="u5ReportContent" class="results-body">
-                    <span class="empty-hint">Hesaplama yapildiginda rapor burada goruntulenecek...</span>
-                </div>
+                <div id="u5ReportContent" class="report-body"><span class="empty-hint">Yükleniyor…</span></div>
             </div>
         </div>
     </main>
 
-            <main id="pageU6Stub" class="page">
+            <!-- U5 · DENGELEME -->
+            <main id="pageU5Adjustment" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-5 — Dengeleme</h2>
+                    <p>Kapalı nivelman kapanma hatası ve düzeltme dağıtımı.</p>
+                </div>
+                <div id="u5AdjContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U6 · HARITA -->
+            <main id="pageU6Map" class="page">
         <div class="page-grid">
-            <section class="telemetry-section" style="max-width:520px;">
-                <div class="glass-panel">
-                    <div class="panel-title-bar">
-                        <h2>Uygulama-6</h2>
-                        <p style="font-size:0.85rem;">Üç Boyutlu Konumlama — RTK GPS</p>
+            <section class="map-section">
+                <div class="glass-panel map-panel">
+                    <div class="panel-title-bar" style="display:flex;justify-content:space-between;align-items:flex-end;">
+                        <div>
+                            <h2>RTK GPS — Nokta Haritası</h2>
+                            <p style="margin-bottom:1rem;">YTÜ Davutpaşa Kampüsü — parsel, detay ve kontrol noktaları.</p>
+                        </div>
+                        <div style="text-align:right;font-family:'JetBrains Mono',monospace;font-size:0.75rem;color:var(--text-3);line-height:1.5;margin-bottom:1rem;">
+                            <span style="color:var(--accent);">Yöntem:</span> RTK GNSS<br>
+                            <span style="color:var(--accent);">CORS:</span> YLDZ<br>
+                            <span style="color:var(--accent);">N (jeoit):</span> 36.898 m
+                        </div>
                     </div>
-                    <div style="background:var(--bg-3);border-radius:6px;padding:0.5rem;margin-bottom:0.75rem;font-size:0.75rem;">
-                        <strong>Öğrenci:</strong> Ertuğrul (24046607) &nbsp;|&nbsp; <strong>Nokta:</strong> 48<br>
-                        <strong>CORS:</strong> YLDZ &nbsp;|&nbsp; <strong>EGM96:</strong> N ≈ 36.5 m
-                    </div>
-                    <div style="display:flex;gap:0.25rem;flex-wrap:wrap;margin-bottom:0.5rem;font-size:0.7rem;">
-                        <span style="background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;">Parsel</span>
-                        <span style="background:#2196f3;color:#fff;padding:1px 6px;border-radius:3px;">Detay</span>
-                        <span style="background:#ff9800;color:#fff;padding:1px 6px;border-radius:3px;">Direk</span>
-                        <span style="background:#8bc34a;color:#fff;padding:1px 6px;border-radius:3px;">Ağaç</span>
-                        <span style="background:#9c27b0;color:#fff;padding:1px 6px;border-radius:3px;">Kontrol</span>
-                    </div>
-                    <button id="u6LoadBtn" class="btn btn-primary" style="width:100%;margin-bottom:0.5rem;">Gerçek RTK Verilerini Göster</button>
-                    <div id="u6RtkTable" style="font-size:0.7rem;max-height:300px;overflow-y:auto;"></div>
-                    <div id="u6Compare" style="font-size:0.7rem;margin-top:0.5rem;"></div>
+                    <div class="map-wrapper"><div id="u6Map"></div></div>
                 </div>
             </section>
-            <section class="map-section" style="flex:1;display:flex;flex-direction:column;gap:0.5rem;">
-                <div class="glass-panel" style="flex:1;min-height:400px;">
-                    <div id="u6Map" style="width:100%;height:100%;min-height:400px;border-radius:8px;"></div>
+            <section class="telemetry-section">
+                <div class="glass-panel">
+                    <h3>Ölçüm Özeti</h3>
+                    <div id="u6MapInfo" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
                 </div>
             </section>
         </div>
     </main>
-    <main id="pageU6Report" class="page">
+
+            <!-- U6 · VERITABANI -->
+            <main id="pageU6Db" class="page">
         <div class="page-single">
             <div class="glass-panel">
                 <div class="panel-title-bar">
-                    <h2>Uygulama-6 — 3B Konumlama Raporu</h2>
-                    <p>Hesaplama sonuclari, hata analizi ve yorumlar.</p>
+                    <h2>Uygulama-6 — Veritabanı</h2>
+                    <p>RTK GPS ham ölçü tablosu (Tablo-1): elipsoid ve ortometrik yükseklikler.</p>
                 </div>
-                <div id="u6ReportContent" class="results-body">
-                    <span class="empty-hint">Hesaplama yapildiginda rapor burada goruntulenecek...</span>
+                <div id="u6DbContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U6 · FORMÜLLER -->
+            <main id="pageU6Formulas" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-6 — Formüller</h2>
+                    <p>Jeoit yüksekliği, ortometrik yükseklik ve RTK tekrar bağıntıları.</p>
                 </div>
+                <div id="u6FormulasContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U6 · RAPOR -->
+            <main id="pageU6Report" class="page">
+        <div class="page-single">
+            <div class="glass-panel report-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-6 — RTK GPS Raporu</h2>
+                    <p>Jeoit hesabı, yükseklik karşılaştırması (Tablo-2) ve yorumlar.</p>
+                </div>
+                <div id="u6ReportContent" class="report-body"><span class="empty-hint">Yükleniyor…</span></div>
+            </div>
+        </div>
+    </main>
+
+            <!-- U6 · DENGELEME -->
+            <main id="pageU6Adjustment" class="page">
+        <div class="page-single">
+            <div class="glass-panel">
+                <div class="panel-title-bar">
+                    <h2>Uygulama-6 — Dengeleme</h2>
+                    <p>Tekrar ölçüsü kontrolleri (P.4 ↔ P.41, N.38 ↔ 38) ve yöntem karşılaştırması.</p>
+                </div>
+                <div id="u6AdjContent" class="results-body"><span class="empty-hint">Yükleniyor…</span></div>
             </div>
         </div>
     </main>

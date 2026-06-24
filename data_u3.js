@@ -79,3 +79,49 @@ export function emptyObservation(stationId, targetIds) {
     notes: ''
   };
 }
+
+/* ═══════════════════════════════════════════════
+   GERÇEK SAHA VERİSİ — Silsile ile Yatay Doğrultu Ölçümü
+   İstasyon N.48 (Ertuğrul) · 2 tam silsile · 3 hedef
+   Kaynak: UYGULAMA3.jpeg (el yazısı çizelge, 24 & 10 Nisan 2026)
+   Referans (sıfır) doğrultu: L-1 kübbe
+   I.durum = Yüz I yatay doğrultu, II.durum = Yüz II (≈ I + 200ᵍ)
+   ═══════════════════════════════════════════════ */
+export const u3StationId = 48;   // N.48 — stations_u3[48]
+
+export const u3Silsile = {
+  station: "N.48",
+  observer: "Ertuğrul",
+  dates: ["24 Nisan 2026", "10 Nisan 2026"],
+  reference: "L-1 kübbe",
+  sets: [
+    { set: 1, obs: [
+      { target: "L-1 kübbe", faceI: 0.5940,    faceII: 200.59245 },
+      { target: "L-2 kübbe", faceI: 58.6333,   faceII: 258.6415 },
+      { target: "YTÜ cami",  faceI: 169.9224,  faceII: 369.9224 },
+    ]},
+    { set: 2, obs: [
+      { target: "L-1 kübbe", faceI: 100.79145, faceII: 300.78975 },
+      { target: "L-2 kübbe", faceI: 158.8384,  faceII: 358.8395 },
+      { target: "YTÜ cami",  faceI: 270.12645, faceII: 70.1319 },
+    ]},
+  ],
+};
+
+/* N.48 çevresindeki gerçek camiler (OpenStreetMap/Overpass'tan alınmış,
+   N.48'den hesaplanmış grid semt açısı [gon] ve yatay mesafe [m]).
+   Düşey açı türetiminde ve haritada hedef adaylarını göstermek için kullanılır. */
+export const u3NearbyMosques = [
+  { name: "Sultan Abdülhamid Yıldız Camii", az: 17.034,  dist: 481.6 },
+  { name: "Davutpaşa Kışlası Mescidi",      az: 50.727,  dist: 224.1 },
+  { name: "Namık Kemal Camii",              az: 60.062,  dist: 981.1 },
+  { name: "Çifte Havuzlar Camii",           az: 79.515,  dist: 801.4 },
+  { name: "Konyalı H. Veyiszade Camii",     az: 102.254, dist: 1291.5, height: 10 },
+  { name: "Çinili Camii",                   az: 123.224, dist: 1763.9 },
+  { name: "Sosyal Meskenler Camii",         az: 164.872, dist: 1001.1 },
+  { name: "Sancaktepe Camii",               az: 203.117, dist: 461.0 },
+  { name: "Söğütlüyayla Camii",             az: 240.714, dist: 958.1 },
+  { name: "Sultan Kılıçaslan Camii",        az: 278.171, dist: 629.8 },
+  { name: "Osman Nuri Özbek Camii",         az: 294.911, dist: 874.4 },
+  { name: "Nur Ahmet Camii",                az: 357.706, dist: 533.8 },
+];

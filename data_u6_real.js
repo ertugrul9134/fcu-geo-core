@@ -39,11 +39,11 @@ export const rtkMeasurements = [
 ];
 
 /**
- * EGM96 geoid undulation for Davutpasa area.
- * N ≈ 36.5 m (from embedded EGM96 grid in u3_elevation.js)
- * Orthometric height H = h_ellipsoidal - N
+ * Davutpaşa bölgesi jeoit yüksekliği (ortalama undülasyon).
+ * N = h_N38 − H_N38 = 110.192 − 73.294 = 36.898 m
+ * Ortometrik yükseklik:  H = h_elipsoidal − N
  */
-export const N_GEOID = 36.898;  // N = h_N38 - H_N38 = 110.192 - 73.294
+export const N_GEOID = 36.898;
 
 export const studentInfo = {
   studentId: 24046607,
@@ -52,3 +52,19 @@ export const studentInfo = {
   instrument: "RTK GPS (YLDZ CORS)",
   date: "2026-06",
 };
+
+/* Tablo-2 (Uygulama-6 raporu): üç yöntemle yükseklik karşılaştırması
+   gps  = RTK ortometrik (H = h − N)
+   geo  = geometrik nivelman (Uygulama-5)
+   trig = trigonometrik nivelman (Uygulama-5 Tablo-3)
+   P.3 ağacın altında kaldığından GPS ile ölçülememiştir (gps: null). */
+export const heightComparison = [
+  { id: "P.1",  gps: 75.401, geo: 75.2968, trig: 75.392 },
+  { id: "P.2",  gps: 75.418, geo: 75.2915, trig: 75.362 },
+  { id: "P.3",  gps: null,   geo: 75.0422, trig: 74.932 },
+  { id: "P.4",  gps: 74.668, geo: 74.5789, trig: 74.414 },
+  { id: "P.5",  gps: 72.735, geo: 73.0256, trig: 73.224 },
+  { id: "P.6",  gps: 72.578, geo: 72.8763, trig: 73.078 },
+  { id: "P.7",  gps: 72.901, geo: 73.0500, trig: 73.571 },
+  { id: "N.38", gps: 73.294, geo: 73.4247, trig: 73.866 },
+];
