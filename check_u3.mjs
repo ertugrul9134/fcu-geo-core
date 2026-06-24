@@ -25,7 +25,7 @@ ok('U3 inner-nav 5 screens', ['Harita','Veritabanı','Formüller','Rapor','Denge
 await clickInner('Harita'); await page.waitForTimeout(1200);
 ok('U3 map tiles', (await page.$$eval('#u3Map img.leaflet-tile', e => e.length).catch(() => 0)) > 0);
 const mi = await page.textContent('#u3MapInfo').catch(() => '');
-ok('U3 Harita info', mi.includes('169.33') && mi.includes('N.48'), `${mi.length}c`);
+ok('U3 Harita info', mi.includes('N.48') && mi.includes('281.39') && mi.includes('Fetih'), `${mi.length}c`);
 await page.screenshot({ path: '_snapshots/u3_harita.png' });
 
 await clickInner('Veritabanı'); await page.waitForTimeout(500);

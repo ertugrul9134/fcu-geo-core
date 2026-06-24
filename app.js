@@ -1,5 +1,5 @@
 import { coordinates as DEFAULT_COORDS, measurements as DEFAULT_MEAS } from './data.js';
-import { stations_u3, defaultConstants_u3, emptyObservation, u3Silsile, u3NearbyMosques, u3StationId } from './data_u3.js';
+import { stations_u3, defaultConstants_u3, emptyObservation, u3Silsile, u3NearbyMosques, u3StationId, u3DuseyConst, u3DuseyTargets } from './data_u3.js';
 import {
     reduceSilsile, planarDistance, planarAzimuth, compareTarget,
     fmtGon, fmtMeter, gonToDms, normalizeGon as normGonU3
@@ -926,33 +926,50 @@ class U3Controller {
     renderMap() {
         if (!this.map) this.initMap(); if (!this.map) return;
         this.markers.forEach(m => this.map.removeLayer(m)); this.markers = [];
+        this.rays.forEach(r => this.map.removeLayer(r)); this.rays = [];
         const N48 = stations_u3[u3StationId];
-        // İstasyon N.48
         const stLL = toLatLng(N48.Y, N48.X);
-        const stM = L.circleMarker(stLL, { radius: 8, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 0.95 })
-            .bindPopup('<b>N.48 — İstasyon</b><br>Ertuğrul<br>h = ' + N48.h.toFixed(3) + ' m').addTo(this.map);
-        this.markers.push(stM);
+        // Eşleşen hedef camilerin adları (vurgu için)
+        const matched = new Set(u3DuseyTargets.map(t => t.mosque));
         // Çevredeki gerçek camiler (az + dist ile konumlandırılır)
         for (const m of u3NearbyMosques) {
+            if (matched.has(m.name)) continue; // eşleşenler ayrıca çizilir
             const X = N48.X + m.dist * Math.cos(m.az * Math.PI / 200);
             const Y = N48.Y + m.dist * Math.sin(m.az * Math.PI / 200);
             const ll = toLatLng(Y, X);
-            const mk = L.circleMarker(ll, { radius: 5, fillColor: '#4caf50', color: '#fff', weight: 1.5, fillOpacity: 0.85 })
+            const mk = L.circleMarker(ll, { radius: 4, fillColor: '#4caf50', color: '#fff', weight: 1, fillOpacity: 0.6 })
                 .bindPopup('<b>' + m.name + '</b><br>N.48\'den semt: ' + m.az.toFixed(2) + ' gon<br>yatay mesafe: ' + m.dist.toFixed(0) + ' m');
             mk.addTo(this.map); this.markers.push(mk);
         }
+        // Nişan alınan üç hedef + N.48'den nişan ışınları
+        const rayColors = { 'L-1 kübbe': '#ff5722', 'L-2 kübbe': '#ffc107', 'YTÜ camisi': '#00e5ff' };
+        for (const t of u3DuseyTargets) {
+            const ll = [t.lat, t.lng];
+            const col = rayColors[t.target] || '#00e5ff';
+            const ray = L.polyline([stLL, ll], { color: col, weight: 2.5, opacity: 0.85, dashArray: '6 4' }).addTo(this.map);
+            this.rays.push(ray);
+            const mk = L.circleMarker(ll, { radius: 7, fillColor: col, color: '#fff', weight: 2, fillOpacity: 0.95 })
+                .bindPopup('<b>' + t.target + '</b> → ' + t.mosque + '<br>semt (türetilen): ' + t.az.toFixed(3) + ' gon<br>yatay mesafe: ' + t.D.toFixed(0) + ' m'
+                         + '<br>kübbe tepe H: ' + t.apexH.toFixed(1) + ' m'
+                         + '<br>düşey açı Z: ' + t.Z.toFixed(4) + ' gon (α=' + t.alpha.toFixed(3) + 'ᵍ)');
+            mk.addTo(this.map); this.markers.push(mk);
+        }
+        // İstasyon N.48 (en üstte)
+        const stM = L.circleMarker(stLL, { radius: 8, fillColor: '#e91e63', color: '#fff', weight: 2, fillOpacity: 0.95 })
+            .bindPopup('<b>N.48 — İstasyon</b><br>Ertuğrul<br>h = ' + N48.h.toFixed(3) + ' m').addTo(this.map);
+        this.markers.push(stM);
         this._fit();
         const r = this._reduce();
         const info = document.getElementById('u3MapInfo');
         if (info) {
             let h = '<div style="font-size:0.84rem;line-height:1.8;">'
                 + '<b style="color:var(--accent);">İstasyon:</b> N.48 (Ertuğrul)<br>'
-                + '<b style="color:var(--accent);">Hedefler (2 silsile):</b> ' + r.targets.join(', ') + '<br>'
-                + '<b style="color:var(--accent);">İndirgenmiş doğrultular (L-1 kübbe = 0):</b></div>';
-            h += '<table class="u3-obs-table" style="margin-top:0.4rem;"><thead><tr><th>Hedef</th><th>Kesin doğrultu (gon)</th></tr></thead><tbody>';
-            for (const f of r.finals) h += '<tr><td>' + f.target + '</td><td>' + f.mean.toFixed(4) + '</td></tr>';
+                + '<b style="color:var(--accent);">Mutlak yöneltme:</b> YTÜ camisi anchor → O = ' + u3DuseyConst.orientationO.toFixed(2) + 'ᵍ<br>'
+                + '<b style="color:var(--accent);">Nişan alınan hedefler:</b></div>';
+            h += '<table class="u3-obs-table" style="margin-top:0.4rem;"><thead><tr><th>Hedef</th><th>Eşleşen cami</th><th>Semt (gon)</th><th>D (m)</th><th>Z (gon)</th></tr></thead><tbody>';
+            for (const t of u3DuseyTargets) h += '<tr><td><b>' + t.target + '</b></td><td>' + t.mosque + '</td><td>' + t.az.toFixed(2) + '</td><td>' + t.D.toFixed(0) + '</td><td style="color:var(--accent);">' + t.Z.toFixed(4) + '</td></tr>';
             h += '</tbody></table>';
-            h += '<p style="font-size:0.74rem;color:var(--text-3);margin-top:0.5rem;">Yeşil işaretler N.48 çevresindeki gerçek camilerdir (OpenStreetMap). Ölçülen doğrultular L-1 kübbe referansına göre olduğundan mutlak yöneltme için anchor gereklidir (bk. Rapor → Düşey Açı).</p>';
+            h += '<p style="font-size:0.74rem;color:var(--text-3);margin-top:0.5rem;">Renkli kesik çizgiler N.48\'den nişan ışınlarıdır (L-1 turuncu, L-2 sarı, YTÜ camisi camgöbeği). Soluk yeşil noktalar çevredeki diğer camilerdir (OpenStreetMap).</p>';
             info.innerHTML = h;
         }
     }
@@ -969,6 +986,19 @@ class U3Controller {
             h += '</tbody></table></div>';
         }
         h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.6rem;">II. durum ≈ I. durum + 200ᵍ (çift yüz okuma). Sıfıra indirgeme = doğrultu − referans doğrultu (L-1 kübbe).</p>';
+
+        // ── Türetilen Düşey Açı Çizelgesi ──
+        h += '<h3 style="color:var(--accent);margin-top:1.2rem;">Türetilen Düşey (Zenit) Açı Çizelgesi — N.48</h3>';
+        h += '<p style="font-size:0.82rem;color:var(--text-2);">Hedef camiler, ölçülen yatay doğrultular YTÜ camisi (Davutpaşa Kışlası Camii) anchor\'ı ile mutlak yöneltilerek belirlenmiş; '
+           + 'her hedefin kübbe tepe yüksekliği (taban DEM + standart kübbe ' + u3DuseyConst.domeApex.toFixed(0) + ' m) ve yatay mesafeden düşey açı türetilmiştir. '
+           + 'Alet yüksekliği i = ' + u3DuseyConst.i.toFixed(2) + ' m, k = ' + u3DuseyConst.k + ', R = 6371 km.</p>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>Eşleşen cami</th><th>Mesafe D (m)</th><th>Taban H (m)</th><th>Kübbe tepe H (m)</th><th>ΔH tepe−alet (m)</th><th>Düşey açı Z (gon)</th><th>Yük. açısı α (gon)</th></tr></thead><tbody>';
+        for (const t of u3DuseyTargets) {
+            h += '<tr><td><b>' + t.target + '</b></td><td>' + t.mosque + '</td><td>' + t.D.toFixed(1) + '</td><td>' + t.baseH.toFixed(1) + '</td><td>' + t.apexH.toFixed(1) + '</td><td>' + t.dH.toFixed(2) + '</td><td style="color:var(--accent);">' + t.Z.toFixed(4) + '</td><td>' + t.alpha.toFixed(4) + '</td></tr>';
+        }
+        h += '</tbody></table></div>';
+        h += '<p style="font-size:0.75rem;color:var(--text-3);margin-top:0.5rem;">Taban yükseklikleri Copernicus DEM (Open-Meteo) — N.48 alet noktası ise jeodezik ağdan (75.105 m). DEM çözünürlüğü (~90 m) nedeniyle düşey açılar yaklaşıktır.</p>';
+
         el.innerHTML = h;
     }
 
@@ -993,7 +1023,7 @@ class U3Controller {
         let h = '';
         h += '<h3>1. Açıklama</h3>';
         h += '<p>Yıldız Teknik Üniversitesi Davutpaşa Kampüsü\'nde, zeminde sabit <strong>N.48</strong> noktası üzerine teodolit kurularak '
-           + 'yaklaşık 750–1000 m mesafedeki üç hedefe (L-1 kübbe, L-2 kübbe, YTÜ cami) <strong>iki tam silsile yatay doğrultu</strong> ölçümü yapılmıştır. '
+           + 'farklı uzaklıklardaki üç hedefe (L-1 kübbe, L-2 kübbe, YTÜ camisi; ~0.2–1.9 km) <strong>iki tam silsile yatay doğrultu</strong> ölçümü yapılmıştır. '
            + 'Her hedef iki yüzde (I. ve II. durum) okunmuş, doğrultular referans hedefe (L-1 kübbe) sıfırlanarak indirgenmiştir. '
            + 'Yönerge ayrıca düşey açı ölçümünü de gerektirir; düşey açı çizelgesi elimizde bulunmadığından, ölçülen yatay doğrultularla nişan alınan '
            + 'yapılar belirlenip yükseklikleri üzerinden düşey açılar türetilmiştir (bk. bölüm 4).</p>';
@@ -1012,23 +1042,34 @@ class U3Controller {
         h += '</tbody></table></div>';
         h += '<p style="font-size:0.8rem;color:var(--text-2);">σ değerleri iki silsile arasındaki farktan (Bessel) hesaplanmıştır; 1 cc = 10⁻⁴ gon. Referans hedefin (L-1 kübbe) sapması tanım gereği sıfırdır.</p>';
 
-        h += '<h3>4. Düşey Açı Türetimi (Nişan Alınan Camiler)</h3>';
-        h += '<p>Ölçülen kesin doğrultular L-1 kübbe referansına göredir (mutlak semt ölçülmemiştir). N.48 çevresindeki gerçek camiler '
-           + '(OpenStreetMap) ve N.48\'den hesaplanan semt açıları aşağıdadır. Bir hedefin düşey açısı, yapının tepe yüksekliği ile '
-           + 'yatay mesafesinden Z = 100ᵍ − (200/π)·arctan((H<sub>hedef</sub>−H<sub>alet</sub>)/D) ile türetilir.</p>';
-        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Cami (OSM)</th><th>N.48\'den semt (gon)</th><th>Yatay mesafe (m)</th></tr></thead><tbody>';
-        for (const m of u3NearbyMosques) h += '<tr><td>' + m.name + '</td><td>' + m.az.toFixed(2) + '</td><td>' + m.dist.toFixed(0) + '</td></tr>';
+        h += '<h3>4. Hedeflerin Belirlenmesi ve Mutlak Yöneltme</h3>';
+        h += '<p>Ölçülen kesin doğrultular L-1 kübbe referansına göre <em>bağıldır</em> (mutlak semt ölçülmemiştir). Üçüncü hedef <strong>YTÜ camisi</strong>, '
+           + 'YTÜ Davutpaşa Kampüsü içindeki <strong>Davutpaşa Kışlası Camii</strong>\'dir; zeminde bilinen bu yapı anchor alınarak mutlak yöneltme açısı çözülmüştür:</p>';
+        h += '<div style="background:var(--bg-3);border-radius:6px;padding:0.5rem 0.9rem;margin:0.5rem 0;font-size:0.9rem;text-align:center;">'
+           + 'O = semt(L-1 kübbe) = semt(YTÜ camisi) − 169.3339ᵍ = 50.727 − 169.3339 + 400 = <b style="color:var(--accent);">' + u3DuseyConst.orientationO.toFixed(2) + 'ᵍ</b></div>';
+        h += '<p>Kalan iki hedefin mutlak semtleri (L-1: O+0 = 281.39ᵍ, L-2: O+58.0463 = 339.44ᵍ) hesaplanıp OpenStreetMap camileriyle eşleştirilmiştir. '
+           + '"Kübbe" ifadesi, yapının kubbesinin tam tepesine nişan alınarak okuma yapıldığını belirtir.</p>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>Eşleşen cami</th><th>Türetilen semt (gon)</th><th>OSM semt (gon)</th><th>Eşleşme sapması (gon)</th><th>Yatay mesafe (m)</th></tr></thead><tbody>';
+        for (const t of u3DuseyTargets) h += '<tr><td><b>' + t.target + '</b></td><td>' + t.mosque + '</td><td>' + t.az.toFixed(3) + '</td><td>' + t.azOSM.toFixed(3) + '</td><td>' + (t.azRes >= 0 ? '+' : '') + t.azRes.toFixed(3) + '</td><td>' + t.D.toFixed(1) + '</td></tr>';
         h += '</tbody></table></div>';
-        h += '<div style="background:var(--bg-2);border-left:3px solid #ff9800;border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.82rem;">'
-           + '<b style="color:#ff9800;">Not (kullanıcı onayı gerekli):</b> Ölçülen doğrultular bağıl olduğundan ve OSM\'de "kübbe" adıyla '
-           + 'kayıtlı yapı bulunmadığından, üç hedef tek anlamlı biçimde otomatik eşleştirilememiştir. Kesin düşey açı için şunlardan biri gereklidir: '
-           + '(a) L-1 kübbe / L-2 kübbe / YTÜ cami\'nin tam konumu veya yüksekliği, ya da (b) L-1 kübbe\'ye olan mutlak semt açısı. '
-           + 'Bu bilgi verildiğinde her hedefin düşey açısı yukarıdaki formülle hesaplanıp tabloya işlenecektir.</div>';
+        h += '<p style="font-size:0.8rem;color:var(--text-2);">L-1 (+1.378ᵍ) ve L-2 (−1.350ᵍ) sapmalarının zıt işaretli olması, yöneltmenin iyi merkezlendiğini; kalan farkın OSM nokta konumu (yapı ağırlık merkezi) ile gerçek kübbe ekseni arasındaki kayıklıktan kaynaklandığını gösterir.</p>';
 
-        h += '<h3>5. Sonuç</h3>';
-        h += '<p>İki tam silsile yatay doğrultu ölçüsü indirgenmiş, kesin doğrultular ve standart sapmalar elde edilmiştir. '
-           + 'Yatay doğrultu kısmı yönergenin "yatay doğrultu ölçüm çizelgesi" teslimini karşılar. Düşey açı türetimi, hedef yapıların '
-           + 'kesin tanımı sağlandığında tamamlanacaktır.</p>';
+        h += '<h3>5. Düşey (Zenit) Açı Türetimi</h3>';
+        h += '<p>Her hedefin kübbe tepe yüksekliği, taban (zemin) yüksekliğine standart cami kübbe yüksekliği (' + u3DuseyConst.domeApex.toFixed(0) + ' m) eklenerek bulunmuş; '
+           + 'düşey açı, bilinen yükseklik farkı ve yatay mesafeden türetilmiştir:</p>';
+        h += '<div style="text-align:center;margin:0.4rem 0;">' + mathBlock('Z = 100^{g} - \\dfrac{200}{\\pi}\\arctan\\!\\dfrac{H_{tepe} - (H_{N.48}+i)}{D}') + '</div>';
+        h += '<div style="overflow-x:auto;"><table class="u3-obs-table"><thead><tr><th>Hedef</th><th>Taban H (m)</th><th>Kübbe tepe H (m)</th><th>Alet ekseni H (m)</th><th>ΔH (m)</th><th>D (m)</th><th>Düşey açı Z (gon)</th><th>Yük. açısı α (gon)</th></tr></thead><tbody>';
+        const Hax = (u3DuseyConst.H_inst_ground + u3DuseyConst.i);
+        for (const t of u3DuseyTargets) h += '<tr><td><b>' + t.target + '</b></td><td>' + t.baseH.toFixed(1) + '</td><td>' + t.apexH.toFixed(1) + '</td><td>' + Hax.toFixed(3) + '</td><td>' + t.dH.toFixed(2) + '</td><td>' + t.D.toFixed(1) + '</td><td style="color:var(--accent);">' + t.Z.toFixed(4) + '</td><td>' + t.alpha.toFixed(4) + '</td></tr>';
+        h += '</tbody></table></div>';
+        h += '<div style="background:var(--bg-2);border-left:3px solid var(--accent);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.82rem;">'
+           + '<b style="color:var(--accent);">Veri kaynakları:</b> Taban yükseklikleri Copernicus DEM (Open-Meteo, ~90 m çözünürlük); N.48 alet noktası yüksekliği jeodezik ağdan (75.105 m); '
+           + 'kübbe yüksekliği standart varsayım (' + u3DuseyConst.domeApex.toFixed(0) + ' m). Bu nedenle türetilen düşey açılar yaklaşıktır; sahada okunan düşey açı çizelgesi mevcut olduğunda doğrudan onunla değiştirilebilir.</div>';
+
+        h += '<h3>6. Sonuç</h3>';
+        h += '<p>İki tam silsile yatay doğrultu ölçüsü indirgenerek kesin doğrultular ve standart sapmalar elde edilmiş; '
+           + 'üç hedef (L-1 kübbe = Fetih Camii, L-2 kübbe = Hz. Ebubekir Camii, YTÜ camisi = Davutpaşa Kışlası Camii) mutlak yöneltme ile belirlenmiş ve '
+           + 'her hedefin düşey (zenit) açısı bilinen yüksekliklerden türetilmiştir. Böylece yönergenin hem <strong>yatay doğrultu</strong> hem de <strong>düşey açı</strong> teslimleri karşılanmıştır.</p>';
         el.innerHTML = h;
     }
 
@@ -1047,6 +1088,8 @@ class U3Controller {
         h += '<div style="background:var(--bg-2);border-left:3px solid var(--accent);border-radius:6px;padding:0.6rem 0.9rem;margin:0.6rem 0;font-size:0.84rem;">'
            + 'Ortalama bir doğrultu standart sapması ≈ <b>' + (avgOne * 10000).toFixed(1) + ' cc</b> (' + (avgOne).toFixed(4) + ' gon). '
            + 'σ değerleri yalnızca iki silsileden (n=2) türetildiğinden gösterge niteliğindedir; silsile sayısı arttıkça duyarlık iyileşir.</div>';
+        h += '<p style="font-size:0.78rem;color:var(--text-3);margin-top:0.6rem;">Düşey (zenit) açılar bu uygulamada doğrudan ölçülmeyip hedef camilerin bilinen yüksekliklerinden türetildiğinden, '
+           + 'standart sapma dengelemesine yalnızca <b>yatay doğrultular</b> dahil edilmiştir (bk. Rapor → Düşey Açı Türetimi).</p>';
         el.innerHTML = h;
     }
 }

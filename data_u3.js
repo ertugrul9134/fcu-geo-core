@@ -113,15 +113,66 @@ export const u3Silsile = {
    Düşey açı türetiminde ve haritada hedef adaylarını göstermek için kullanılır. */
 export const u3NearbyMosques = [
   { name: "Sultan Abdülhamid Yıldız Camii", az: 17.034,  dist: 481.6 },
-  { name: "Davutpaşa Kışlası Mescidi",      az: 50.727,  dist: 224.1 },
+  { name: "Davutpaşa Kışlası Camii",        az: 50.727,  dist: 224.1 },
   { name: "Namık Kemal Camii",              az: 60.062,  dist: 981.1 },
   { name: "Çifte Havuzlar Camii",           az: 79.515,  dist: 801.4 },
   { name: "Konyalı H. Veyiszade Camii",     az: 102.254, dist: 1291.5, height: 10 },
   { name: "Çinili Camii",                   az: 123.224, dist: 1763.9 },
   { name: "Sosyal Meskenler Camii",         az: 164.872, dist: 1001.1 },
   { name: "Sancaktepe Camii",               az: 203.117, dist: 461.0 },
-  { name: "Söğütlüyayla Camii",             az: 240.714, dist: 958.1 },
+  { name: "Fetih Camii",                    az: 280.012, dist: 1258.8 },
+  { name: "Hz. Ebubekir Camii",             az: 340.786, dist: 1914.6 },
   { name: "Sultan Kılıçaslan Camii",        az: 278.171, dist: 629.8 },
-  { name: "Osman Nuri Özbek Camii",         az: 294.911, dist: 874.4 },
   { name: "Nur Ahmet Camii",                az: 357.706, dist: 533.8 },
+];
+
+/* ═══════════════════════════════════════════════
+   DÜŞEY (ZENİT) AÇI TÜRETİMİ — İstasyon N.48
+   ───────────────────────────────────────────────
+   Ölçülen yatay doğrultular L-1 kübbe'ye göre bağıldır
+   (mutlak semt ölçülmemiştir). Mutlak yöneltme, üçüncü
+   hedef olan YTÜ camisi = YTÜ Davutpaşa Kampüsü'ndeki
+   Davutpaşa Kışlası Camii (zeminde bilinen yapı) anchor
+   alınarak çözülmüştür:
+       O  = semt(L-1 kübbe)
+          = semt(YTÜ camisi) − 169.3339ᵍ
+          = 50.727 − 169.3339 + 400 = 281.39ᵍ
+   Kalan iki hedef, ölçülen kesin doğrultular bu O ile
+   döndürülüp OpenStreetMap camileriyle eşleştirilerek
+   belirlenmiştir (eşleşme sapmaları ±1.4ᵍ; zıt işaretli
+   olmaları yöneltmenin merkezlendiğini gösterir).
+
+   "Kübbe" = yapının kubbesi tam tepesine nişan alınması.
+   Her hedefin tepe yüksekliği = DEM taban yüksekliği +
+   standart cami kübbe yüksekliği. Düşey açı bilinen
+   yüksekliklerden türetilir:
+       Z = 100ᵍ − (200/π)·arctan( (H_tepe − H_alet)/D )
+   Taban yükseklikleri: Copernicus DEM (Open-Meteo, ~90 m).
+   N.48 alet noktası yüksekliği jeodezik ağdan (75.105 m).
+   ═══════════════════════════════════════════════ */
+export const u3DuseyConst = {
+  k: 0.13,              // refraksiyon katsayısı
+  R: 6371000,           // yer yarıçapı (m)
+  i: 1.55,              // alet yüksekliği (m)
+  H_inst_ground: 75.105,// N.48 zemin yüksekliği (ağdan, m)
+  domeApex: 17.0,       // standart cami kübbe tepe yüksekliği (zeminden, m) — varsayım
+  orientationO: 281.39, // L-1 kübbe'ye mutlak semt (gon)
+  anchor: "YTÜ camisi = Davutpaşa Kışlası Camii (kampüs camisi)"
+};
+
+/* Türetilen düşey açı çizelgesi.
+   redDir : ölçülen kesin (indirgenmiş) yatay doğrultu (gon)
+   az     : türetilen mutlak semt = O + redDir (gon)
+   azOSM  : eşleşen caminin OSM koordinatından N.48'e göre semt
+   azRes  : az − azOSM (eşleşme sapması, gon)
+   D      : N.48'den yatay mesafe (m)
+   baseH  : cami zemin (taban) yüksekliği (DEM, m)
+   apexH  : kübbe tepe yüksekliği = baseH + domeApex (m)
+   dH     : H_tepe − H_alet (m)
+   Z      : düşey (zenit) açı (gon, 100ᵍ = ufuk)
+   alpha  : yükseklik açısı = 100 − Z (gon) */
+export const u3DuseyTargets = [
+  { target:"L-1 kübbe", mosque:"Fetih Camii",             lat:41.021135, lng:28.872498, redDir:0.0000,   az:281.390, azOSM:280.012, azRes:+1.378, D:1258.8, baseH:78.0, apexH:95.0,  dH:18.34, Z:99.0778, alpha:0.9222 },
+  { target:"L-2 kübbe", mosque:"Hz. Ebubekir Camii",      lat:41.034899, lng:28.868247, redDir:58.0463,  az:339.436, azOSM:340.786, azRes:-1.350, D:1914.6, baseH:95.0, apexH:112.0, dH:35.34, Z:98.8332, alpha:1.1668 },
+  { target:"YTÜ camisi",mosque:"Davutpaşa Kışlası Camii", lat:41.026202, lng:28.888553, redDir:169.3339, az:50.724,  azOSM:50.727,  azRes:-0.003, D:224.1,  baseH:80.0, apexH:97.0,  dH:20.34, Z:94.2372, alpha:5.7628 },
 ];
